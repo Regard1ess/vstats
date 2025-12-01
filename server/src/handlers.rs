@@ -395,7 +395,7 @@ pub async fn get_all_metrics(State(state): State<AppState>) -> Json<Vec<ServerMe
 // Installation Script Handlers
 // ============================================================================
 
-const AGENT_SCRIPT: &str = include_str!("../../scripts/agent.sh");
+const AGENT_SCRIPT: &str = include_str!("../scripts/agent.sh");
 
 pub async fn get_agent_script() -> impl IntoResponse {
     (

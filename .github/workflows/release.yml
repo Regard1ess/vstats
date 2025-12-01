@@ -30,6 +30,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y musl-tools
       
+      - name: Prepare scripts
+        run: |
+          mkdir -p server/scripts
+          cp scripts/agent.sh server/scripts/
+      
       - name: Build Agent
         run: |
           cd agent
@@ -63,6 +68,12 @@ jobs:
       
       - name: Install cross
         run: cargo install cross --git https://github.com/cross-rs/cross
+      
+      - name: Prepare scripts for cross build
+        run: |
+          # Copy scripts into server/src for include_str! to work in cross container
+          mkdir -p server/scripts
+          cp scripts/agent.sh server/scripts/
       
       - name: Build Agent with cross
         run: |
@@ -101,6 +112,11 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      
+      - name: Prepare scripts
+        run: |
+          mkdir -p server/scripts
+          cp scripts/agent.sh server/scripts/
       
       - name: Build Agent
         run: |
