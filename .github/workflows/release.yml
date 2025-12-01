@@ -33,6 +33,7 @@ jobs:
       - name: Prepare scripts
         run: |
           mkdir -p server/scripts
+          rm -f server/scripts/agent.sh
           cp scripts/agent.sh server/scripts/
       
       - name: Build Agent
@@ -73,6 +74,7 @@ jobs:
         run: |
           # Copy scripts into server/src for include_str! to work in cross container
           mkdir -p server/scripts
+          rm -f server/scripts/agent.sh
           cp scripts/agent.sh server/scripts/
       
       - name: Build Agent with cross
@@ -116,6 +118,7 @@ jobs:
       - name: Prepare scripts
         run: |
           mkdir -p server/scripts
+          rm -f server/scripts/agent.sh
           cp scripts/agent.sh server/scripts/
       
       - name: Build Agent
