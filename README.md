@@ -33,34 +33,13 @@ curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash
 
 ### 安装探针 (Agent)
 
-登录 Dashboard 后，进入 **Settings** 页面获取安装命令。
-
-**方式一：Rust Agent (推荐)**
-
-```bash
-# 下载预编译二进制
-curl -fsSL https://github.com/zsai001/vstats/releases/latest/download/vstats-agent-linux-x86_64-gnu -o vstats-agent
-chmod +x vstats-agent
-
-# 注册并创建配置
-sudo ./vstats-agent register \
-  --server http://YOUR_DASHBOARD_IP:3001 \
-  --token "your-jwt-token" \
-  --name "$(hostname)" \
-  --location "US" \
-  --provider "Vultr"
-
-# 安装为系统服务
-sudo ./vstats-agent install
-```
-
-**方式二：Shell Agent (轻量)**
+登录 Dashboard 后，进入 **Settings** 页面获取安装命令，或直接运行：
 
 ```bash
 curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- \
   --server http://YOUR_DASHBOARD_IP:3001 \
-  --name "$(hostname)" \
   --token "your-jwt-token" \
+  --name "$(hostname)" \
   --location "US" \
   --provider "Vultr"
 ```
@@ -71,11 +50,8 @@ curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- \
 # 升级主控端
 curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash -s -- --upgrade
 
-# 升级 Shell 探针
+# 升级探针
 curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- --upgrade
-
-# 升级 Rust 探针：下载新版本二进制替换后重启服务
-sudo systemctl restart vstats-agent
 ```
 
 ### 卸载
@@ -84,11 +60,8 @@ sudo systemctl restart vstats-agent
 # 卸载主控端
 curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash -s -- --uninstall
 
-# 卸载 Shell 探针
+# 卸载探针
 curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- --uninstall
-
-# 卸载 Rust 探针
-sudo vstats-agent uninstall
 ```
 
 ## 🏗️ 架构
@@ -162,8 +135,7 @@ vstats/
 │   └── package.json
 ├── scripts/                # 安装脚本
 │   ├── install.sh         # 主控端安装脚本
-│   ├── agent.sh           # Shell 探针脚本
-│   └── install-agent.sh   # Rust 探针安装脚本
+│   └── agent.sh           # 探针安装脚本
 ├── docs/                   # GitHub Pages 文档站
 │   ├── index.html         # 落地页
 │   ├── install.sh         # 安装脚本 (镜像)
