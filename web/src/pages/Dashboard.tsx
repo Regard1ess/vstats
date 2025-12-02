@@ -195,11 +195,6 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
                 {config.tag}
               </span>
             )}
-            {(config.version || metrics.version) && (
-              <span className="text-[10px] text-gray-600 font-mono">
-                v{config.version || metrics.version}
-              </span>
-            )}
             <span className="text-[10px] text-gray-500">{formatUptime(metrics.uptime)}</span>
           </div>
         </div>
@@ -291,6 +286,23 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
   const providerLogo = config.provider && config.provider !== 'Local' ? getProviderLogo(config.provider) : null;
   const distributionLogo = metrics ? getDistributionLogo(metrics.os.name) : null;
   const flag = config.location ? FLAGS[config.location] : null;
+
+  // Format disk size for grid view
+  const formatDiskSizeGrid = (bytes: number) => {
+    const gb = bytes / (1024 * 1024 * 1024);
+    if (gb >= 1000) return `${(gb / 1024).toFixed(0)}T`;
+    return `${gb.toFixed(0)}G`;
+  };
+
+  // Get short CPU brand name for grid view
+  const getShortCpuBrandGrid = (brand: string) => {
+    return brand
+      .replace(/\(R\)|\(TM\)|CPU|Processor|@.*$/gi, '')
+      .replace(/Intel Core |AMD Ryzen |AMD EPYC |Intel Xeon /gi, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 16);
+  };
 
   if (!metrics) {
     return (
@@ -406,6 +418,31 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
         </div>
       </div>
 
+      {/* Hardware Info Row */}
+      <div className="flex flex-wrap gap-1 text-[9px] text-gray-400 pt-2 border-t border-white/5">
+        <div className="flex items-center gap-0.5" title={metrics.cpu.brand}>
+          <svg className="w-2.5 h-2.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+          </svg>
+          <span className="text-gray-300">{getShortCpuBrandGrid(metrics.cpu.brand)}</span>
+          <span className="text-gray-500">×{metrics.cpu.cores}</span>
+        </div>
+        <span className="text-gray-600">|</span>
+        <div className="flex items-center gap-0.5">
+          <svg className="w-2.5 h-2.5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+          <span className="text-gray-300">{formatDiskSizeGrid(metrics.memory.total)}</span>
+        </div>
+        <span className="text-gray-600">|</span>
+        <div className="flex items-center gap-0.5">
+          <svg className="w-2.5 h-2.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+          </svg>
+          <span className="text-gray-300">{formatDiskSizeGrid(metrics.disks.reduce((acc, d) => acc + d.total, 0))}</span>
+        </div>
+      </div>
+
       {/* Footer Info */}
       <div className="flex items-center justify-between pt-2 text-[10px] border-theme" style={{ borderTopWidth: '1px' }}>
         <div className="flex items-center gap-1 flex-wrap">
@@ -421,11 +458,6 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
           {config.tag && (
             <span className="px-1 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[9px]">
               {config.tag}
-            </span>
-          )}
-          {(config.version || metrics.version) && (
-            <span className="text-gray-600 font-mono text-[9px]">
-              v{config.version || metrics.version}
             </span>
           )}
           <span style={{ color: 'var(--text-muted)' }}>{formatUptime(metrics.uptime)}</span>

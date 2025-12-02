@@ -10,6 +10,10 @@ use futures::{SinkExt, StreamExt};
 use std::net::SocketAddr;
 use tokio::sync::mpsc;
 
+use std::time::Duration as StdDuration;
+use sysinfo::{CpuRefreshKind, Disks, Networks, System};
+
+use crate::collector::collect_metrics;
 use crate::db::store_metrics;
 use crate::state::AppState;
 use crate::types::{AgentMessage, AgentMetricsData, DashboardMessage, ServerMetricsUpdate};
@@ -31,9 +35,23 @@ async fn handle_dashboard_socket(socket: WebSocket, state: AppState) {
         let config = state.config.read().await;
         let agent_metrics = state.agent_metrics.read().await;
 
+        // Collect local metrics immediately for initial state
+        let local_metrics = {
+            let mut sys = System::new_all();
+            let disks = Disks::new_with_refreshed_list();
+            let networks = Networks::new_with_refreshed_list();
+            
+            // Wait for CPU measurement
+            sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+            std::thread::sleep(StdDuration::from_millis(200));
+            sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+            
+            collect_metrics(&mut sys, &disks, &networks)
+        };
+
         let mut updates: Vec<ServerMetricsUpdate> = Vec::new();
         
-        // Add local node first
+        // Add local node first with collected metrics
         let local_node = &config.local_node;
         updates.push(ServerMetricsUpdate {
             server_id: "local".to_string(),
@@ -48,7 +66,7 @@ async fn handle_dashboard_socket(socket: WebSocket, state: AppState) {
             version: env!("CARGO_PKG_VERSION").to_string(),
             ip: String::new(),
             online: true,
-            metrics: None, // Will be populated by the background task
+            metrics: Some(local_metrics), // Include local metrics in initial state
         });
         
         // Add remote servers
@@ -300,9 +318,20 @@ async fn handle_agent_socket(socket: WebSocket, state: AppState, client_ip: Stri
         let config = state.config.read().await;
         let agent_metrics = state.agent_metrics.read().await;
 
+        // Collect local metrics for disconnect broadcast
+        let local_metrics = {
+            let mut sys = System::new_all();
+            let disks = Disks::new_with_refreshed_list();
+            let networks = Networks::new_with_refreshed_list();
+            sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+            std::thread::sleep(StdDuration::from_millis(100));
+            sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+            collect_metrics(&mut sys, &disks, &networks)
+        };
+
         let mut updates: Vec<ServerMetricsUpdate> = Vec::new();
         
-        // Add local node first
+        // Add local node first with metrics
         let local_node = &config.local_node;
         updates.push(ServerMetricsUpdate {
             server_id: "local".to_string(),
@@ -317,7 +346,7 @@ async fn handle_agent_socket(socket: WebSocket, state: AppState, client_ip: Stri
             version: env!("CARGO_PKG_VERSION").to_string(),
             ip: String::new(),
             online: true,
-            metrics: None,
+            metrics: Some(local_metrics),
         });
         
         // Add remote servers

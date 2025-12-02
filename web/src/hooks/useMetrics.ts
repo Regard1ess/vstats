@@ -75,6 +75,36 @@ const defaultSiteSettings: SiteSettings = {
   social_links: []
 };
 
+// LocalStorage key for caching server metrics
+const METRICS_CACHE_KEY = 'vstats-metrics-cache';
+
+// Load cached metrics from localStorage
+const loadCachedMetrics = (): Map<string, SystemMetrics> => {
+  try {
+    const cached = localStorage.getItem(METRICS_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      return new Map(Object.entries(parsed));
+    }
+  } catch (e) {
+    console.warn('Failed to load cached metrics', e);
+  }
+  return new Map();
+};
+
+// Save metrics to localStorage
+const saveCachedMetrics = (metricsMap: Map<string, SystemMetrics>) => {
+  try {
+    const obj: Record<string, SystemMetrics> = {};
+    metricsMap.forEach((value, key) => {
+      obj[key] = value;
+    });
+    localStorage.setItem(METRICS_CACHE_KEY, JSON.stringify(obj));
+  } catch (e) {
+    console.warn('Failed to save metrics cache', e);
+  }
+};
+
 export function useServerManager() {
   const [servers, setServers] = useState<ServerState[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
@@ -83,6 +113,7 @@ export function useServerManager() {
   
   const lastMetricsMap = useRef<Map<string, { metrics: SystemMetrics, time: number }>>(new Map());
   const serversCache = useRef<Map<string, ServerState>>(new Map());
+  const cachedMetricsRef = useRef<Map<string, SystemMetrics>>(loadCachedMetrics());
   const wsRef = useRef<WebSocket | null>(null);
   const initialDataReceived = useRef(false);
 
@@ -192,11 +223,22 @@ export function useServerManager() {
                   }
                 }
 
+                // Cache metrics when online, use cache when offline
+                let metricsToUse = serverUpdate.metrics;
                 if (serverUpdate.metrics) {
                   lastMetricsMap.current.set(serverUpdate.server_id, { 
                     metrics: serverUpdate.metrics, 
                     time: now 
                   });
+                  // Save to persistent cache
+                  cachedMetricsRef.current.set(serverUpdate.server_id, serverUpdate.metrics);
+                } else if (!serverUpdate.online) {
+                  // Server is offline, use cached metrics if available
+                  const cachedMetrics = cachedMetricsRef.current.get(serverUpdate.server_id);
+                  if (cachedMetrics) {
+                    metricsToUse = cachedMetrics;
+                    newSpeed = { rx_sec: 0, tx_sec: 0 }; // Reset speed for offline servers
+                  }
                 }
 
                 // Determine if this is the local server
@@ -212,7 +254,7 @@ export function useServerManager() {
                     tag: serverUpdate.tag,
                     version: serverUpdate.version || serverUpdate.metrics?.version,
                   },
-                  metrics: serverUpdate.metrics,
+                  metrics: metricsToUse,
                   speed: newSpeed,
                   isConnected: serverUpdate.online,
                   error: null
@@ -223,6 +265,9 @@ export function useServerManager() {
                 
                 return serverState;
               });
+
+              // Save cached metrics to localStorage periodically
+              saveCachedMetrics(cachedMetricsRef.current);
 
               setServers(allServers);
             }
@@ -240,11 +285,19 @@ export function useServerManager() {
                       if (newState) {
                         hasChanges = true;
                         serversCache.current.set(server.config.id, newState);
+                        // Update persistent cache if metrics changed and server is online
+                        if (newState.metrics && newState.isConnected) {
+                          cachedMetricsRef.current.set(server.config.id, newState.metrics);
+                        }
                         return newState;
                       }
                     }
                     return server;
                   });
+                  // Periodically save to localStorage
+                  if (hasChanges) {
+                    saveCachedMetrics(cachedMetricsRef.current);
+                  }
                   return hasChanges ? updated : prev;
                 });
               }
