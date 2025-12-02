@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -135,15 +137,37 @@ func main() {
 		protected.PUT("/api/settings/probe", state.UpdateProbeSettings)
 	}
 
-	// Static file serving (fallback to embedded HTML)
-	r.NoRoute(func(c *gin.Context) {
-		if c.Request.URL.Path == "/" || c.Request.URL.Path == "/index.html" {
-			c.Header("Content-Type", "text/html")
-			c.String(200, embeddedIndexHTML)
-			return
-		}
-		c.Status(404)
-	})
+	// Static file serving
+	webDir := getWebDir()
+	if webDir != "" {
+		// Serve static files from web directory
+		r.Static("/assets", webDir+"/assets")
+		r.StaticFile("/favicon.ico", webDir+"/favicon.ico")
+		r.StaticFile("/vite.svg", webDir+"/vite.svg")
+		r.GET("/", func(c *gin.Context) {
+			c.File(webDir + "/index.html")
+		})
+		r.NoRoute(func(c *gin.Context) {
+			// For SPA, serve index.html for all non-API routes
+			if !strings.HasPrefix(c.Request.URL.Path, "/api") && 
+			   !strings.HasPrefix(c.Request.URL.Path, "/ws") &&
+			   !strings.HasPrefix(c.Request.URL.Path, "/agent.sh") {
+				c.File(webDir + "/index.html")
+			} else {
+				c.Status(404)
+			}
+		})
+	} else {
+		// Fallback to embedded HTML
+		r.NoRoute(func(c *gin.Context) {
+			if c.Request.URL.Path == "/" || c.Request.URL.Path == "/index.html" {
+				c.Header("Content-Type", "text/html")
+				c.String(200, embeddedIndexHTML)
+				return
+			}
+			c.Status(404)
+		})
+	}
 
 	port := os.Getenv("VSTATS_PORT")
 	if port == "" {
@@ -367,6 +391,55 @@ func cleanupLoop(db *sql.DB) {
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+// getWebDir finds the web directory containing the frontend assets
+func getWebDir() string {
+	// Check VSTATS_WEB_DIR environment variable
+	if webDir := os.Getenv("VSTATS_WEB_DIR"); webDir != "" {
+		if _, err := os.Stat(filepath.Join(webDir, "index.html")); err == nil {
+			return webDir
+		}
+		if _, err := os.Stat(filepath.Join(webDir, "dist", "index.html")); err == nil {
+			return filepath.Join(webDir, "dist")
+		}
+	}
+
+	// Check relative to executable
+	if exe, err := os.Executable(); err == nil {
+		exeDir := filepath.Dir(exe)
+		paths := []string{
+			filepath.Join(exeDir, "..", "web", "dist"),
+			filepath.Join(exeDir, "web", "dist"),
+			filepath.Join(exeDir, "..", "..", "web", "dist"),
+			filepath.Join(exeDir, "..", "dist"),
+		}
+		for _, p := range paths {
+			if abs, err := filepath.Abs(p); err == nil {
+				if _, err := os.Stat(filepath.Join(abs, "index.html")); err == nil {
+					return abs
+				}
+			}
+		}
+	}
+
+	// Check common locations
+	paths := []string{
+		"./web/dist",
+		"./web",
+		"./dist",
+		"../web/dist",
+		"/opt/vstats/web",
+	}
+	for _, p := range paths {
+		if abs, err := filepath.Abs(p); err == nil {
+			if _, err := os.Stat(filepath.Join(abs, "index.html")); err == nil {
+				return abs
+			}
+		}
+	}
+
+	return ""
 }
 
 const embeddedIndexHTML = `<!DOCTYPE html>
