@@ -61,7 +61,7 @@ export function useServerManager() {
   const wsRef = useRef<WebSocket | null>(null);
   const initialDataReceived = useRef(false);
 
-  // Connect to dashboard WebSocket
+  // Connect to dashboard WebSocket - all data (local + remote) comes through here
   useEffect(() => {
     const connect = () => {
       try {
@@ -93,63 +93,60 @@ export function useServerManager() {
               }
               const now = Date.now();
               
-              setServers(prev => {
-                // Keep local server if exists
-                const localServer = prev.find(s => s.config.type === 'local');
+              // All servers (local + remote) come through WebSocket
+              const allServers: ServerState[] = data.servers.map(serverUpdate => {
+                const lastData = lastMetricsMap.current.get(serverUpdate.server_id);
                 
-                const realServers: ServerState[] = data.servers.map(serverUpdate => {
-                  const existingServer = prev.find(s => s.config.id === serverUpdate.server_id);
-                  const lastData = lastMetricsMap.current.get(serverUpdate.server_id);
-                  
-                  let newSpeed = existingServer?.speed || { rx_sec: 0, tx_sec: 0 };
+                let newSpeed = { rx_sec: 0, tx_sec: 0 };
 
-                  // Use pre-calculated speeds from agent if available
-                  if (serverUpdate.metrics?.network.rx_speed !== undefined && 
-                      serverUpdate.metrics?.network.tx_speed !== undefined) {
-                    newSpeed = {
-                      rx_sec: serverUpdate.metrics.network.rx_speed,
-                      tx_sec: serverUpdate.metrics.network.tx_speed
-                    };
-                  } else if (lastData && serverUpdate.metrics) {
-                    // Fallback: calculate from totals difference
-                    const timeDiff = (now - lastData.time) / 1000;
-                    if (timeDiff > 0) {
-                      const rxDiff = serverUpdate.metrics.network.total_rx - lastData.metrics.network.total_rx;
-                      const txDiff = serverUpdate.metrics.network.total_tx - lastData.metrics.network.total_tx;
-                      newSpeed = {
-                        rx_sec: Math.max(0, rxDiff / timeDiff),
-                        tx_sec: Math.max(0, txDiff / timeDiff)
-                      };
-                    }
-                  }
-
-                  if (serverUpdate.metrics) {
-                    lastMetricsMap.current.set(serverUpdate.server_id, { 
-                      metrics: serverUpdate.metrics, 
-                      time: now 
-                    });
-                  }
-
-                  return {
-                    config: {
-                      id: serverUpdate.server_id,
-                      name: serverUpdate.server_name,
-                      type: 'real' as const,
-                      location: serverUpdate.location,
-                      provider: serverUpdate.provider,
-                      tag: serverUpdate.tag,
-                      version: serverUpdate.version || serverUpdate.metrics?.version,
-                    },
-                    metrics: serverUpdate.metrics,
-                    speed: newSpeed,
-                    isConnected: serverUpdate.online,
-                    error: null
+                // Use pre-calculated speeds from server if available
+                if (serverUpdate.metrics?.network.rx_speed !== undefined && 
+                    serverUpdate.metrics?.network.tx_speed !== undefined) {
+                  newSpeed = {
+                    rx_sec: serverUpdate.metrics.network.rx_speed,
+                    tx_sec: serverUpdate.metrics.network.tx_speed
                   };
-                });
+                } else if (lastData && serverUpdate.metrics) {
+                  // Fallback: calculate from totals difference
+                  const timeDiff = (now - lastData.time) / 1000;
+                  if (timeDiff > 0) {
+                    const rxDiff = serverUpdate.metrics.network.total_rx - lastData.metrics.network.total_rx;
+                    const txDiff = serverUpdate.metrics.network.total_tx - lastData.metrics.network.total_tx;
+                    newSpeed = {
+                      rx_sec: Math.max(0, rxDiff / timeDiff),
+                      tx_sec: Math.max(0, txDiff / timeDiff)
+                    };
+                  }
+                }
 
-                // Put local server first if exists
-                return localServer ? [localServer, ...realServers] : realServers;
+                if (serverUpdate.metrics) {
+                  lastMetricsMap.current.set(serverUpdate.server_id, { 
+                    metrics: serverUpdate.metrics, 
+                    time: now 
+                  });
+                }
+
+                // Determine if this is the local server
+                const isLocal = serverUpdate.server_id === 'local';
+
+                return {
+                  config: {
+                    id: serverUpdate.server_id,
+                    name: serverUpdate.server_name,
+                    type: isLocal ? 'local' as const : 'real' as const,
+                    location: serverUpdate.location,
+                    provider: serverUpdate.provider,
+                    tag: serverUpdate.tag,
+                    version: serverUpdate.version || serverUpdate.metrics?.version,
+                  },
+                  metrics: serverUpdate.metrics,
+                  speed: newSpeed,
+                  isConnected: serverUpdate.online,
+                  error: null
+                };
               });
+
+              setServers(allServers);
             }
           } catch (e) {
             console.error('[Dashboard] Parse error', e);
@@ -182,74 +179,6 @@ export function useServerManager() {
         wsRef.current.close();
       }
     };
-  }, []);
-
-  // Fetch local server metrics
-  useEffect(() => {
-    const fetchLocalMetrics = async () => {
-      try {
-        const res = await fetch('/api/metrics');
-        if (!res.ok) return;
-        const data: SystemMetrics & { local_node?: { name?: string; location?: string; provider?: string; tag?: string } } = await res.json();
-        const metrics = data as SystemMetrics;
-        const localNodeConfig = (data as any).local_node || {};
-        const now = Date.now();
-        
-        setServers(prev => {
-          const existingLocal = prev.find(s => s.config.type === 'local');
-          const lastData = lastMetricsMap.current.get('local');
-          
-          let newSpeed = existingLocal?.speed || { rx_sec: 0, tx_sec: 0 };
-          
-          // Use pre-calculated speeds from agent if available
-          if (metrics.network.rx_speed !== undefined && metrics.network.tx_speed !== undefined) {
-            newSpeed = {
-              rx_sec: metrics.network.rx_speed,
-              tx_sec: metrics.network.tx_speed
-            };
-          } else if (lastData) {
-            // Fallback: calculate from totals difference
-            const timeDiff = (now - lastData.time) / 1000;
-            if (timeDiff > 0) {
-              const rxDiff = metrics.network.total_rx - lastData.metrics.network.total_rx;
-              const txDiff = metrics.network.total_tx - lastData.metrics.network.total_tx;
-              newSpeed = {
-                rx_sec: Math.max(0, rxDiff / timeDiff),
-                tx_sec: Math.max(0, txDiff / timeDiff)
-              };
-            }
-          }
-          
-          lastMetricsMap.current.set('local', { metrics, time: now });
-          
-          const localServer: ServerState = {
-            config: {
-              id: 'local',
-              name: localNodeConfig.name || metrics.hostname || 'Local Server',
-              type: 'local',
-              location: localNodeConfig.location || '',
-              provider: localNodeConfig.provider || 'Local',
-              tag: localNodeConfig.tag || '',
-            },
-            metrics,
-            speed: newSpeed,
-            isConnected: true,
-            error: null
-          };
-          
-          const others = prev.filter(s => s.config.type !== 'local');
-          return [localServer, ...others];
-        });
-      } catch (e) {
-        console.error('[Local] Failed to fetch metrics', e);
-      }
-    };
-    
-    // Fetch immediately and then every second
-    fetchLocalMetrics();
-    const interval = setInterval(fetchLocalMetrics, 1000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   // Get a server by ID (with cached lookup)

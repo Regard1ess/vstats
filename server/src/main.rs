@@ -228,18 +228,26 @@ async fn main() {
     let state_clone = state.clone();
     tokio::spawn(async move {
         let mut sys = System::new_all();
-        let mut disks = Disks::new_with_refreshed_list();
-        let mut networks = Networks::new_with_refreshed_list();
+        let disks = Disks::new_with_refreshed_list();
+        let networks = Networks::new_with_refreshed_list();
         let mut last_hour = Utc::now().hour();
         let mut last_aggregation = Utc::now();
+        
+        // Track network for speed calculation
+        let mut last_network_rx: u64 = 0;
+        let mut last_network_tx: u64 = 0;
+        let mut last_network_time = std::time::Instant::now();
+
+        // Initial CPU measurement
+        sys.refresh_cpu_specifics(CpuRefreshKind::everything());
+        tokio::time::sleep(Duration::from_millis(200)).await;
 
         loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
+            // 5 second interval for metrics broadcast (reduced from 1s to save bandwidth)
+            tokio::time::sleep(Duration::from_secs(5)).await;
 
             sys.refresh_cpu_specifics(CpuRefreshKind::everything());
             sys.refresh_memory();
-            disks.refresh();
-            networks.refresh();
 
             // Check for hourly aggregation
             let current_hour = Utc::now().hour();
@@ -267,52 +275,90 @@ async fn main() {
                 }
             }
 
-            // Broadcast metrics
+            // Collect local server metrics
+            let local_metrics = collector::collect_metrics(&mut sys, &disks, &networks);
+            
+            // Calculate network speed
+            let now = std::time::Instant::now();
+            let elapsed_secs = now.duration_since(last_network_time).as_secs_f64();
+            let (rx_speed, tx_speed) = if elapsed_secs > 0.1 {
+                let rx_diff = local_metrics.network.total_rx.saturating_sub(last_network_rx);
+                let tx_diff = local_metrics.network.total_tx.saturating_sub(last_network_tx);
+                last_network_rx = local_metrics.network.total_rx;
+                last_network_tx = local_metrics.network.total_tx;
+                last_network_time = now;
+                ((rx_diff as f64 / elapsed_secs) as u64, (tx_diff as f64 / elapsed_secs) as u64)
+            } else {
+                (0, 0)
+            };
+            
+            // Create local metrics with calculated speed
+            let mut local_metrics_with_speed = local_metrics;
+            local_metrics_with_speed.network.rx_speed = rx_speed;
+            local_metrics_with_speed.network.tx_speed = tx_speed;
+
+            // Broadcast metrics (including local server)
             let config = state_clone.config.read().await;
             let agent_metrics = state_clone.agent_metrics.read().await;
 
-            let updates: Vec<ServerMetricsUpdate> = config
-                .servers
-                .iter()
-                .map(|server| {
-                    let metrics_data = agent_metrics.get(&server.id);
-                    let online = metrics_data
-                        .map(|m| {
-                            Utc::now()
-                                .signed_duration_since(m.last_updated)
-                                .num_seconds()
-                                < 30
-                        })
-                        .unwrap_or(false);
+            // Build updates list: local server first, then remote agents
+            let mut updates: Vec<ServerMetricsUpdate> = Vec::new();
+            
+            // Add local server
+            let local_node = &config.local_node;
+            updates.push(ServerMetricsUpdate {
+                server_id: "local".to_string(),
+                server_name: if local_node.name.is_empty() { 
+                    local_metrics_with_speed.hostname.clone() 
+                } else { 
+                    local_node.name.clone() 
+                },
+                location: local_node.location.clone(),
+                provider: if local_node.provider.is_empty() { "Local".to_string() } else { local_node.provider.clone() },
+                tag: local_node.tag.clone(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                ip: String::new(),
+                online: true,
+                metrics: Some(local_metrics_with_speed),
+            });
+            
+            // Add remote servers
+            for server in &config.servers {
+                let metrics_data = agent_metrics.get(&server.id);
+                let online = metrics_data
+                    .map(|m| {
+                        Utc::now()
+                            .signed_duration_since(m.last_updated)
+                            .num_seconds()
+                            < 30
+                    })
+                    .unwrap_or(false);
 
-                    let version = metrics_data
-                        .and_then(|m| m.metrics.version.clone())
-                        .unwrap_or_else(|| server.version.clone());
+                let version = metrics_data
+                    .and_then(|m| m.metrics.version.clone())
+                    .unwrap_or_else(|| server.version.clone());
 
-                    ServerMetricsUpdate {
-                        server_id: server.id.clone(),
-                        server_name: server.name.clone(),
-                        location: server.location.clone(),
-                        provider: server.provider.clone(),
-                        tag: server.tag.clone(),
-                        version,
-                        ip: server.ip.clone(),
-                        online,
-                        metrics: metrics_data.map(|m| m.metrics.clone()),
-                    }
-                })
-                .collect();
+                updates.push(ServerMetricsUpdate {
+                    server_id: server.id.clone(),
+                    server_name: server.name.clone(),
+                    location: server.location.clone(),
+                    provider: server.provider.clone(),
+                    tag: server.tag.clone(),
+                    version,
+                    ip: server.ip.clone(),
+                    online,
+                    metrics: metrics_data.map(|m| m.metrics.clone()),
+                });
+            }
 
-            if !updates.is_empty() {
-                let msg = DashboardMessage {
-                    msg_type: "metrics".to_string(),
-                    servers: updates,
-                    site_settings: None,
-                };
+            let msg = DashboardMessage {
+                msg_type: "metrics".to_string(),
+                servers: updates,
+                site_settings: Some(config.site_settings.clone()),
+            };
 
-                if let Ok(json) = serde_json::to_string(&msg) {
-                    let _ = state_clone.metrics_tx.send(json);
-                }
+            if let Ok(json) = serde_json::to_string(&msg) {
+                let _ = state_clone.metrics_tx.send(json);
             }
         }
     });
