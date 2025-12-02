@@ -16,6 +16,8 @@ pub struct SystemMetrics {
     pub network: NetworkMetrics,
     pub uptime: u64,
     pub load_average: LoadAverage,
+    #[serde(default)]
+    pub ping: Option<PingMetrics>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,6 +83,20 @@ pub struct LoadAverage {
     pub one: f64,
     pub five: f64,
     pub fifteen: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PingMetrics {
+    pub targets: Vec<PingTarget>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PingTarget {
+    pub name: String,
+    pub host: String,
+    pub latency_ms: Option<f64>,
+    pub packet_loss: f64,
+    pub status: String, // "ok", "timeout", "error"
 }
 
 // ============================================================================

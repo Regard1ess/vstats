@@ -8,6 +8,7 @@ export interface SystemMetrics {
   network: NetworkMetrics;
   uptime: number;
   load_average: LoadAverage;
+  ping?: PingMetrics;
 }
 
 export interface OsInfo {
@@ -66,6 +67,18 @@ export interface LoadAverage {
   fifteen: number;
 }
 
+export interface PingMetrics {
+  targets: PingTarget[];
+}
+
+export interface PingTarget {
+  name: string;
+  host: string;
+  latency_ms: number | null;
+  packet_loss: number;
+  status: string;
+}
+
 // Site Settings
 export interface SiteSettings {
   site_name: string;
@@ -87,6 +100,7 @@ export interface HistoryPoint {
   disk: number;
   net_rx: number;
   net_tx: number;
+  ping_ms?: number;
 }
 
 export interface HistoryResponse {

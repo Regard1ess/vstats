@@ -106,6 +106,8 @@ pub fn collect_metrics(sys: &mut System, disks: &Disks, networks: &Networks) -> 
             interfaces,
             total_rx,
             total_tx,
+            rx_speed: 0,
+            tx_speed: 0,
         },
         uptime: System::uptime(),
         load_average: LoadAverage {
@@ -113,6 +115,7 @@ pub fn collect_metrics(sys: &mut System, disks: &Disks, networks: &Networks) -> 
             five: load_avg.five,
             fifteen: load_avg.fifteen,
         },
+        ping: None,
     }
 }
 

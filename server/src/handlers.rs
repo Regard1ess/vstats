@@ -214,7 +214,7 @@ pub async fn get_history(
             let cutoff = (Utc::now() - Duration::hours(1)).to_rfc3339();
             let mut stmt = db
                 .prepare(
-                    r#"SELECT timestamp, cpu_usage, memory_usage, disk_usage, net_rx, net_tx
+                    r#"SELECT timestamp, cpu_usage, memory_usage, disk_usage, net_rx, net_tx, ping_ms
                    FROM metrics_raw WHERE server_id = ?1 AND timestamp >= ?2
                    ORDER BY timestamp ASC"#,
                 )
@@ -229,6 +229,7 @@ pub async fn get_history(
                         disk: row.get(3)?,
                         net_rx: row.get(4)?,
                         net_tx: row.get(5)?,
+                        ping_ms: row.get(6).ok(),
                     })
                 })
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -239,7 +240,7 @@ pub async fn get_history(
             let cutoff = (Utc::now() - Duration::hours(24)).to_rfc3339();
             let mut stmt = db
                 .prepare(
-                    r#"SELECT timestamp, cpu_usage, memory_usage, disk_usage, net_rx, net_tx
+                    r#"SELECT timestamp, cpu_usage, memory_usage, disk_usage, net_rx, net_tx, ping_ms
                    FROM metrics_raw WHERE server_id = ?1 AND timestamp >= ?2
                    AND (CAST(strftime('%s', timestamp) AS INTEGER) % 300) < 60
                    ORDER BY timestamp ASC"#,
@@ -255,6 +256,7 @@ pub async fn get_history(
                         disk: row.get(3)?,
                         net_rx: row.get(4)?,
                         net_tx: row.get(5)?,
+                        ping_ms: row.get(6).ok(),
                     })
                 })
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -265,7 +267,7 @@ pub async fn get_history(
             let cutoff = (Utc::now() - Duration::days(7)).to_rfc3339();
             let mut stmt = db
                 .prepare(
-                    r#"SELECT hour_start, cpu_avg, memory_avg, disk_avg, net_rx_total, net_tx_total
+                    r#"SELECT hour_start, cpu_avg, memory_avg, disk_avg, net_rx_total, net_tx_total, ping_avg
                    FROM metrics_hourly WHERE server_id = ?1 AND hour_start >= ?2
                    ORDER BY hour_start ASC"#,
                 )
@@ -280,6 +282,7 @@ pub async fn get_history(
                         disk: row.get(3)?,
                         net_rx: row.get(4)?,
                         net_tx: row.get(5)?,
+                        ping_ms: row.get(6).ok(),
                     })
                 })
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -292,7 +295,7 @@ pub async fn get_history(
                 .to_string();
             let mut stmt = db
                 .prepare(
-                    r#"SELECT date, cpu_avg, memory_avg, disk_avg, net_rx_total, net_tx_total
+                    r#"SELECT date, cpu_avg, memory_avg, disk_avg, net_rx_total, net_tx_total, ping_avg
                    FROM metrics_daily WHERE server_id = ?1 AND date >= ?2
                    ORDER BY date ASC"#,
                 )
@@ -307,6 +310,7 @@ pub async fn get_history(
                         disk: row.get(3)?,
                         net_rx: row.get(4)?,
                         net_tx: row.get(5)?,
+                        ping_ms: row.get(6).ok(),
                     })
                 })
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -320,7 +324,7 @@ pub async fn get_history(
                 .to_string();
             let mut stmt = db
                 .prepare(
-                    r#"SELECT date, cpu_avg, memory_avg, disk_avg, net_rx_total, net_tx_total
+                    r#"SELECT date, cpu_avg, memory_avg, disk_avg, net_rx_total, net_tx_total, ping_avg
                    FROM metrics_daily WHERE server_id = ?1 AND date >= ?2
                    ORDER BY date ASC"#,
                 )
@@ -335,6 +339,7 @@ pub async fn get_history(
                         disk: row.get(3)?,
                         net_rx: row.get(4)?,
                         net_tx: row.get(5)?,
+                        ping_ms: row.get(6).ok(),
                     })
                 })
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;

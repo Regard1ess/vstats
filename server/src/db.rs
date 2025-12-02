@@ -21,6 +21,7 @@ pub fn init_database() -> rusqlite::Result<Connection> {
             load_1 REAL NOT NULL,
             load_5 REAL NOT NULL,
             load_15 REAL NOT NULL,
+            ping_ms REAL,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP
         );
         
@@ -36,6 +37,7 @@ pub fn init_database() -> rusqlite::Result<Connection> {
             disk_avg REAL NOT NULL,
             net_rx_total INTEGER NOT NULL,
             net_tx_total INTEGER NOT NULL,
+            ping_avg REAL,
             sample_count INTEGER NOT NULL,
             UNIQUE(server_id, hour_start)
         );
@@ -53,6 +55,7 @@ pub fn init_database() -> rusqlite::Result<Connection> {
             net_rx_total INTEGER NOT NULL,
             net_tx_total INTEGER NOT NULL,
             uptime_percent REAL NOT NULL,
+            ping_avg REAL,
             sample_count INTEGER NOT NULL,
             UNIQUE(server_id, date)
         );
@@ -63,15 +66,32 @@ pub fn init_database() -> rusqlite::Result<Connection> {
         CREATE INDEX IF NOT EXISTS idx_metrics_daily_server_time ON metrics_daily(server_id, date);
     "#)?;
     
+    // Add ping_ms column if it doesn't exist (migration for existing databases)
+    let _ = conn.execute("ALTER TABLE metrics_raw ADD COLUMN ping_ms REAL", []);
+    let _ = conn.execute("ALTER TABLE metrics_hourly ADD COLUMN ping_avg REAL", []);
+    let _ = conn.execute("ALTER TABLE metrics_daily ADD COLUMN ping_avg REAL", []);
+    
     Ok(conn)
 }
 
 pub fn store_metrics(conn: &Connection, server_id: &str, metrics: &SystemMetrics) -> rusqlite::Result<()> {
     let disk_usage = metrics.disks.first().map(|d| d.usage_percent).unwrap_or(0.0);
     
+    // Get average ping latency from all targets
+    let ping_ms: Option<f64> = metrics.ping.as_ref().and_then(|p| {
+        let valid_pings: Vec<f64> = p.targets.iter()
+            .filter_map(|t| t.latency_ms)
+            .collect();
+        if valid_pings.is_empty() {
+            None
+        } else {
+            Some(valid_pings.iter().sum::<f64>() / valid_pings.len() as f64)
+        }
+    });
+    
     conn.execute(
-        r#"INSERT INTO metrics_raw (server_id, timestamp, cpu_usage, memory_usage, disk_usage, net_rx, net_tx, load_1, load_5, load_15)
-           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"#,
+        r#"INSERT INTO metrics_raw (server_id, timestamp, cpu_usage, memory_usage, disk_usage, net_rx, net_tx, load_1, load_5, load_15, ping_ms)
+           VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"#,
         params![
             server_id,
             metrics.timestamp.to_rfc3339(),
@@ -83,6 +103,7 @@ pub fn store_metrics(conn: &Connection, server_id: &str, metrics: &SystemMetrics
             metrics.load_average.one,
             metrics.load_average.five,
             metrics.load_average.fifteen,
+            ping_ms,
         ],
     )?;
     Ok(())

@@ -65,18 +65,18 @@ function SocialIcon({ platform }: { platform: string }) {
   }
 }
 
-function SocialLinks({ links }: { links: SocialLink[] }) {
+function SocialLinks({ links, className = '' }: { links: SocialLink[]; className?: string }) {
   if (!links || links.length === 0) return null;
   
   return (
-    <div className="flex items-center justify-center gap-3 mb-3">
+    <div className={`flex items-center gap-2 ${className}`}>
       {links.map((link, i) => (
         <a
           key={i}
           href={link.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="social-link"
+          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-400 hover:text-white transition-all"
           title={link.label || link.platform}
         >
           <SocialIcon platform={link.platform} />
@@ -317,11 +317,14 @@ export default function Dashboard() {
     <div className="min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto flex flex-col gap-6">
       {/* Header */}
       <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <span className="text-emerald-500">⚡</span> {siteSettings.site_name || 'xProb Dashboard'}
-          </h1>
-          <p className="text-gray-500 text-xs mt-0.5 font-mono">{siteSettings.site_description || 'Real-time Server Monitoring'}</p>
+        <div className="flex items-center gap-4">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+              <span className="text-emerald-500">⚡</span> {siteSettings.site_name || 'xProb Dashboard'}
+            </h1>
+            <p className="text-gray-500 text-xs mt-0.5 font-mono">{siteSettings.site_description || 'Real-time Server Monitoring'}</p>
+          </div>
+          <SocialLinks links={siteSettings.social_links} className="hidden sm:flex" />
         </div>
         <div className="flex items-center gap-3">
           {/* View Mode Toggle */}
@@ -421,9 +424,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Footer with Social Links */}
+      {/* Footer */}
       <footer className="text-center mt-auto pt-6 pb-2">
-        <SocialLinks links={siteSettings.social_links} />
         <p className="text-gray-600 text-[10px] font-mono">
           xProb Monitor v0.3.0 • Powered by vStats
         </p>

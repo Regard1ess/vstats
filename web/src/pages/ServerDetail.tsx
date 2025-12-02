@@ -30,16 +30,21 @@ function StatCard({ label, value, subValue, color = 'gray' }: { label: string; v
 
 // History Chart Component
 type TimeRange = '1h' | '24h' | '7d' | '30d' | '1y';
+type HistoryTab = 'overview' | 'cpu' | 'memory' | 'disk' | 'network' | 'ping';
 
 function HistoryChart({ serverId }: { serverId: string }) {
   const [range, setRange] = useState<TimeRange>('24h');
+  const [tab, setTab] = useState<HistoryTab>('overview');
   const [data, setData] = useState<HistoryPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchHistory = async () => {
-      setLoading(true);
+      if (isInitialLoad) {
+        setIsFetching(true);
+      }
       setError(null);
       try {
         const res = await fetch(`/api/history/${serverId}?range=${range}`);
@@ -49,7 +54,8 @@ function HistoryChart({ serverId }: { serverId: string }) {
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Unknown error');
       } finally {
-        setLoading(false);
+        setIsFetching(false);
+        setIsInitialLoad(false);
       }
     };
     fetchHistory();
@@ -63,14 +69,30 @@ function HistoryChart({ serverId }: { serverId: string }) {
     { value: '1y', label: '1Y' },
   ];
 
-  // Get max values for scaling
-  const maxCpu = Math.max(...data.map(d => d.cpu), 100);
-  const maxMem = Math.max(...data.map(d => d.memory), 100);
-  const maxDisk = Math.max(...data.map(d => d.disk), 100);
+  const tabs: { value: HistoryTab; label: string; color: string }[] = [
+    { value: 'overview', label: 'Overview', color: 'emerald' },
+    { value: 'cpu', label: 'CPU', color: 'blue' },
+    { value: 'memory', label: 'Memory', color: 'purple' },
+    { value: 'disk', label: 'Disk', color: 'amber' },
+    { value: 'network', label: 'Network', color: 'cyan' },
+    { value: 'ping', label: 'Ping', color: 'rose' },
+  ];
 
   // Sample data for display (max 60 points for smooth rendering)
   const sampleRate = Math.max(1, Math.floor(data.length / 60));
   const sampledData = data.filter((_, i) => i % sampleRate === 0);
+
+  // Calculate time labels for X axis (5 labels)
+  const getTimeLabels = () => {
+    if (sampledData.length < 2) return [];
+    const labels: { index: number; label: string }[] = [];
+    const step = Math.floor((sampledData.length - 1) / 4);
+    for (let i = 0; i <= 4; i++) {
+      const idx = Math.min(i * step, sampledData.length - 1);
+      labels.push({ index: idx, label: formatTime(sampledData[idx].timestamp) });
+    }
+    return labels;
+  };
 
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -83,13 +105,348 @@ function HistoryChart({ serverId }: { serverId: string }) {
     return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
 
+  const formatBytes = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  };
+
+  // Single chart component with X axis
+  const Chart = ({ 
+    data: chartData, 
+    color, 
+    label, 
+    getValue, 
+    formatValue,
+    maxValue 
+  }: { 
+    data: HistoryPoint[]; 
+    color: string; 
+    label: string; 
+    getValue: (d: HistoryPoint) => number;
+    formatValue: (v: number) => string;
+    maxValue?: number;
+  }) => {
+    const values = chartData.map(getValue);
+    const max = maxValue ?? Math.max(...values, 1);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    const timeLabels = getTimeLabels();
+    
+    const colorClasses: Record<string, { bg: string; hover: string; text: string }> = {
+      blue: { bg: 'bg-blue-500', hover: 'hover:bg-blue-400', text: 'text-blue-400' },
+      purple: { bg: 'bg-purple-500', hover: 'hover:bg-purple-400', text: 'text-purple-400' },
+      amber: { bg: 'bg-amber-500', hover: 'hover:bg-amber-400', text: 'text-amber-400' },
+      cyan: { bg: 'bg-cyan-500', hover: 'hover:bg-cyan-400', text: 'text-cyan-400' },
+      rose: { bg: 'bg-rose-500', hover: 'hover:bg-rose-400', text: 'text-rose-400' },
+      emerald: { bg: 'bg-emerald-500', hover: 'hover:bg-emerald-400', text: 'text-emerald-400' },
+    };
+    const c = colorClasses[color] || colorClasses.blue;
+
+    return (
+      <div className="relative">
+        <div className="flex items-center justify-between mb-2">
+          <span className={`text-xs ${c.text} font-medium`}>{label}</span>
+          <span className="text-xs text-gray-500 font-mono">
+            avg: {formatValue(avg)}
+          </span>
+        </div>
+        <div className="relative">
+          <div className="h-20 flex items-end gap-px bg-white/[0.02] rounded-lg p-2 overflow-hidden">
+            {chartData.map((point, i) => (
+              <div
+                key={i}
+                className={`flex-1 min-w-[2px] ${c.bg} rounded-t transition-all ${c.hover} cursor-pointer`}
+                style={{ height: `${Math.max((getValue(point) / max) * 100, 1)}%` }}
+                title={`${formatTime(point.timestamp)}: ${formatValue(getValue(point))}`}
+              />
+            ))}
+          </div>
+          {/* X Axis Labels */}
+          <div className="flex justify-between text-[9px] text-gray-600 font-mono mt-1 px-1">
+            {timeLabels.map((t, i) => (
+              <span key={i} className="whitespace-nowrap">{t.label}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Render content based on tab
+  const renderContent = () => {
+    if (isInitialLoad && isFetching) {
+      return (
+        <div className="h-64 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
+          {error}
+        </div>
+      );
+    }
+
+    if (data.length === 0) {
+      return (
+        <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
+          No historical data available for this period
+        </div>
+      );
+    }
+
+    const opacity = isFetching ? 'opacity-50' : 'opacity-100';
+
+    switch (tab) {
+      case 'overview':
+        return (
+          <div className={`space-y-6 transition-opacity ${opacity}`}>
+            <Chart 
+              data={sampledData} 
+              color="blue" 
+              label="CPU Usage"
+              getValue={d => d.cpu}
+              formatValue={v => `${v.toFixed(1)}%`}
+              maxValue={100}
+            />
+            <Chart 
+              data={sampledData} 
+              color="purple" 
+              label="Memory Usage"
+              getValue={d => d.memory}
+              formatValue={v => `${v.toFixed(1)}%`}
+              maxValue={100}
+            />
+            <Chart 
+              data={sampledData} 
+              color="amber" 
+              label="Disk Usage"
+              getValue={d => d.disk}
+              formatValue={v => `${v.toFixed(1)}%`}
+              maxValue={100}
+            />
+          </div>
+        );
+
+      case 'cpu':
+        return (
+          <div className={`transition-opacity ${opacity}`}>
+            <Chart 
+              data={sampledData} 
+              color="blue" 
+              label="CPU Usage"
+              getValue={d => d.cpu}
+              formatValue={v => `${v.toFixed(1)}%`}
+              maxValue={100}
+            />
+            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Min</div>
+                <div className="text-lg font-mono text-blue-400">
+                  {Math.min(...data.map(d => d.cpu)).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Avg</div>
+                <div className="text-lg font-mono text-blue-400">
+                  {(data.reduce((a, b) => a + b.cpu, 0) / data.length).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Max</div>
+                <div className="text-lg font-mono text-blue-400">
+                  {Math.max(...data.map(d => d.cpu)).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'memory':
+        return (
+          <div className={`transition-opacity ${opacity}`}>
+            <Chart 
+              data={sampledData} 
+              color="purple" 
+              label="Memory Usage"
+              getValue={d => d.memory}
+              formatValue={v => `${v.toFixed(1)}%`}
+              maxValue={100}
+            />
+            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Min</div>
+                <div className="text-lg font-mono text-purple-400">
+                  {Math.min(...data.map(d => d.memory)).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Avg</div>
+                <div className="text-lg font-mono text-purple-400">
+                  {(data.reduce((a, b) => a + b.memory, 0) / data.length).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Max</div>
+                <div className="text-lg font-mono text-purple-400">
+                  {Math.max(...data.map(d => d.memory)).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'disk':
+        return (
+          <div className={`transition-opacity ${opacity}`}>
+            <Chart 
+              data={sampledData} 
+              color="amber" 
+              label="Disk Usage"
+              getValue={d => d.disk}
+              formatValue={v => `${v.toFixed(1)}%`}
+              maxValue={100}
+            />
+            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Min</div>
+                <div className="text-lg font-mono text-amber-400">
+                  {Math.min(...data.map(d => d.disk)).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Avg</div>
+                <div className="text-lg font-mono text-amber-400">
+                  {(data.reduce((a, b) => a + b.disk, 0) / data.length).toFixed(1)}%
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Max</div>
+                <div className="text-lg font-mono text-amber-400">
+                  {Math.max(...data.map(d => d.disk)).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'network':
+        return (
+          <div className={`space-y-6 transition-opacity ${opacity}`}>
+            <Chart 
+              data={sampledData} 
+              color="emerald" 
+              label="Upload (TX)"
+              getValue={d => d.net_tx}
+              formatValue={v => formatBytes(v)}
+            />
+            <Chart 
+              data={sampledData} 
+              color="cyan" 
+              label="Download (RX)"
+              getValue={d => d.net_rx}
+              formatValue={v => formatBytes(v)}
+            />
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Total Upload</div>
+                <div className="text-lg font-mono text-emerald-400">
+                  {formatBytes(data.reduce((a, b) => a + b.net_tx, 0))}
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Total Download</div>
+                <div className="text-lg font-mono text-cyan-400">
+                  {formatBytes(data.reduce((a, b) => a + b.net_rx, 0))}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'ping':
+        const pingData = sampledData.filter(d => d.ping_ms !== undefined && d.ping_ms !== null);
+        if (pingData.length === 0) {
+          return (
+            <div className={`transition-opacity ${opacity}`}>
+              <div className="h-32 flex flex-col items-center justify-center text-gray-500">
+                <svg className="w-12 h-12 mb-3 text-rose-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                </svg>
+                <span className="text-sm">No ping data available</span>
+                <span className="text-xs text-gray-600 mt-1">Waiting for agent to report latency...</span>
+              </div>
+            </div>
+          );
+        }
+        
+        const pingValues = pingData.map(d => d.ping_ms!);
+        const avgPing = pingValues.reduce((a, b) => a + b, 0) / pingValues.length;
+        const minPing = Math.min(...pingValues);
+        const maxPing = Math.max(...pingValues);
+        
+        return (
+          <div className={`transition-opacity ${opacity}`}>
+            <Chart 
+              data={pingData} 
+              color="rose" 
+              label="Ping Latency"
+              getValue={d => d.ping_ms ?? 0}
+              formatValue={v => `${v.toFixed(1)} ms`}
+            />
+            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Min</div>
+                <div className="text-lg font-mono text-emerald-400">
+                  {minPing.toFixed(1)} ms
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Avg</div>
+                <div className="text-lg font-mono text-rose-400">
+                  {avgPing.toFixed(1)} ms
+                </div>
+              </div>
+              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                <div className="text-[10px] text-gray-500 uppercase">Max</div>
+                <div className="text-lg font-mono text-amber-400">
+                  {maxPing.toFixed(1)} ms
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="nezha-card p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-          History
-        </h2>
+      {/* Header with Tabs */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+        <div className="flex flex-wrap gap-1 p-1 bg-white/5 rounded-lg">
+          {tabs.map(t => (
+            <button
+              key={t.value}
+              onClick={() => setTab(t.value)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                tab === t.value
+                  ? `bg-${t.color}-500 text-white`
+                  : 'text-gray-400 hover:text-white hover:bg-white/10'
+              }`}
+              style={tab === t.value ? { backgroundColor: `var(--${t.color}-500, #10b981)` } : {}}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         <div className="flex gap-1 p-1 bg-white/5 rounded-lg">
           {ranges.map(r => (
             <button
@@ -107,89 +464,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
         </div>
       </div>
 
-      {loading ? (
-        <div className="h-48 flex items-center justify-center">
-          <div className="w-8 h-8 border-2 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
-        </div>
-      ) : error ? (
-        <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
-          {error}
-        </div>
-      ) : data.length === 0 ? (
-        <div className="h-48 flex items-center justify-center text-gray-500 text-sm">
-          No historical data available for this period
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* CPU Chart */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-blue-400 font-medium">CPU Usage</span>
-              <span className="text-xs text-gray-500 font-mono">
-                avg: {(data.reduce((a, b) => a + b.cpu, 0) / data.length).toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-16 flex items-end gap-px bg-white/[0.02] rounded-lg p-2 overflow-hidden">
-              {sampledData.map((point, i) => (
-                <div
-                  key={i}
-                  className="flex-1 min-w-[2px] bg-blue-500 rounded-t transition-all hover:bg-blue-400"
-                  style={{ height: `${(point.cpu / maxCpu) * 100}%` }}
-                  title={`${formatTime(point.timestamp)}: ${point.cpu.toFixed(1)}%`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Memory Chart */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-purple-400 font-medium">Memory Usage</span>
-              <span className="text-xs text-gray-500 font-mono">
-                avg: {(data.reduce((a, b) => a + b.memory, 0) / data.length).toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-16 flex items-end gap-px bg-white/[0.02] rounded-lg p-2 overflow-hidden">
-              {sampledData.map((point, i) => (
-                <div
-                  key={i}
-                  className="flex-1 min-w-[2px] bg-purple-500 rounded-t transition-all hover:bg-purple-400"
-                  style={{ height: `${(point.memory / maxMem) * 100}%` }}
-                  title={`${formatTime(point.timestamp)}: ${point.memory.toFixed(1)}%`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Disk Chart */}
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-amber-400 font-medium">Disk Usage</span>
-              <span className="text-xs text-gray-500 font-mono">
-                avg: {(data.reduce((a, b) => a + b.disk, 0) / data.length).toFixed(1)}%
-              </span>
-            </div>
-            <div className="h-16 flex items-end gap-px bg-white/[0.02] rounded-lg p-2 overflow-hidden">
-              {sampledData.map((point, i) => (
-                <div
-                  key={i}
-                  className="flex-1 min-w-[2px] bg-amber-500 rounded-t transition-all hover:bg-amber-400"
-                  style={{ height: `${(point.disk / maxDisk) * 100}%` }}
-                  title={`${formatTime(point.timestamp)}: ${point.disk.toFixed(1)}%`}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Time labels */}
-          {sampledData.length > 0 && (
-            <div className="flex justify-between text-[10px] text-gray-600 font-mono px-2">
-              <span>{formatTime(sampledData[0].timestamp)}</span>
-              <span>{formatTime(sampledData[sampledData.length - 1].timestamp)}</span>
-            </div>
-          )}
-        </div>
-      )}
+      {renderContent()}
     </div>
   );
 }
@@ -480,6 +755,38 @@ export default function ServerDetail() {
                 ))}
             </div>
           </div>
+
+          {/* Ping Status */}
+          {metrics.ping && metrics.ping.targets.length > 0 && (
+            <div className="pt-4 border-t border-white/5 mt-4">
+              <div className="text-xs text-gray-500 mb-3">Ping Latency</div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {metrics.ping.targets.map((target, i) => (
+                  <div 
+                    key={i} 
+                    className={`p-3 rounded-lg border ${
+                      target.status === 'ok' 
+                        ? 'bg-emerald-500/5 border-emerald-500/20' 
+                        : target.status === 'timeout'
+                        ? 'bg-amber-500/5 border-amber-500/20'
+                        : 'bg-red-500/5 border-red-500/20'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-gray-400">{target.name}</span>
+                      <span className={`w-2 h-2 rounded-full ${
+                        target.status === 'ok' ? 'bg-emerald-500' : target.status === 'timeout' ? 'bg-amber-500' : 'bg-red-500'
+                      }`} />
+                    </div>
+                    <div className="text-lg font-mono font-bold text-white">
+                      {target.latency_ms !== null ? `${target.latency_ms.toFixed(1)} ms` : '--'}
+                    </div>
+                    <div className="text-[10px] text-gray-500 mt-1 font-mono">{target.host}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

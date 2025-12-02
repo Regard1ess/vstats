@@ -68,6 +68,8 @@ pub struct HistoryPoint {
     pub disk: f32,
     pub net_rx: i64,
     pub net_tx: i64,
+    #[serde(default)]
+    pub ping_ms: Option<f64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,6 +104,8 @@ pub struct SystemMetrics {
     pub network: NetworkMetrics,
     pub uptime: u64,
     pub load_average: LoadAverage,
+    #[serde(default)]
+    pub ping: Option<PingMetrics>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -147,6 +151,10 @@ pub struct NetworkMetrics {
     pub interfaces: Vec<NetworkInterface>,
     pub total_rx: u64,
     pub total_tx: u64,
+    #[serde(default)]
+    pub rx_speed: u64,
+    #[serde(default)]
+    pub tx_speed: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -163,6 +171,20 @@ pub struct LoadAverage {
     pub one: f64,
     pub five: f64,
     pub fifteen: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PingMetrics {
+    pub targets: Vec<PingTarget>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PingTarget {
+    pub name: String,
+    pub host: String,
+    pub latency_ms: Option<f64>,
+    pub packet_loss: f64,
+    pub status: String,
 }
 
 // ============================================================================
