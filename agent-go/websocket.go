@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -193,8 +192,36 @@ func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string) {
 	// Determine download URL
 	url := downloadURL
 	if url == "" {
-		// Default to the server's agent binary endpoint
-		url = fmt.Sprintf("%s/releases/vstats-agent", strings.TrimSuffix(wsc.config.DashboardURL, "/"))
+		// Build GitHub Releases URL based on OS and architecture
+		osName := runtime.GOOS
+		arch := runtime.GOARCH
+		
+		// Map Go architecture names to release naming
+		if arch == "amd64" {
+			arch = "amd64"
+		} else if arch == "arm64" {
+			arch = "arm64"
+		} else if arch == "386" {
+			arch = "386"
+		}
+		
+		// Determine binary name
+		binaryName := fmt.Sprintf("vstats-agent-%s-%s", osName, arch)
+		if osName == "windows" {
+			binaryName += ".exe"
+		}
+		
+		// Try to get latest version from GitHub API
+		latestVersion := "latest"
+		if latest, err := fetchLatestGitHubVersion("zsai001", "vstats"); err == nil && latest != nil {
+			latestVersion = *latest
+		}
+		
+		// Build GitHub Releases download URL
+		url = fmt.Sprintf("https://github.com/zsai001/vstats/releases/download/%s/%s", latestVersion, binaryName)
+		log.Printf("No download URL provided, using GitHub Releases: %s", url)
+	} else {
+		log.Printf("Using provided download URL: %s", url)
 	}
 
 	log.Printf("Downloading update from: %s", url)
@@ -274,4 +301,41 @@ func downloadFile(url, path string) error {
 	}
 
 	return nil
+}
+
+// fetchLatestGitHubVersion fetches the latest release version from GitHub
+func fetchLatestGitHubVersion(owner, repo string) (*string, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", owner, repo)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", "vstats-agent")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status: %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+
+	tagName, ok := result["tag_name"].(string)
+	if !ok {
+		return nil, fmt.Errorf("no tag_name in response")
+	}
+
+	// Remove 'v' prefix if present
+	if len(tagName) > 0 && tagName[0] == 'v' {
+		tagName = tagName[1:]
+	}
+
+	return &tagName, nil
 }
