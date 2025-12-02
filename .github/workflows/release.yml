@@ -46,7 +46,7 @@ jobs:
         run: |
           cd server
           cargo build --release --target x86_64-unknown-linux-musl
-          cp target/x86_64-unknown-linux-musl/release/xprob-server ../vstats-server-linux-x86_64-musl
+          cp target/x86_64-unknown-linux-musl/release/vstats-server ../vstats-server-linux-x86_64-musl
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -87,7 +87,7 @@ jobs:
         run: |
           cd server
           cross build --release --target aarch64-unknown-linux-musl
-          cp target/aarch64-unknown-linux-musl/release/xprob-server ../vstats-server-linux-aarch64-musl
+          cp target/aarch64-unknown-linux-musl/release/vstats-server ../vstats-server-linux-aarch64-musl
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -131,7 +131,7 @@ jobs:
         run: |
           cd server
           cargo build --release --target ${{ matrix.target }}
-          cp target/${{ matrix.target }}/release/xprob-server ../vstats-server-${{ matrix.artifact }}
+          cp target/${{ matrix.target }}/release/vstats-server ../vstats-server-${{ matrix.artifact }}
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
