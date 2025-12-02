@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useServerManager, formatBytes, formatSpeed, formatUptime } from '../hooks/useMetrics';
 import { getOsIcon, getProviderIcon } from '../components/Icons';
+import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUtils';
 import type { HistoryPoint, HistoryResponse } from '../types';
 
 const FLAGS: Record<string, string> = {
@@ -472,18 +473,47 @@ function HistoryChart({ serverId }: { serverId: string }) {
 export default function ServerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { servers } = useServerManager();
+  const { servers, loadingState, isInitialLoad } = useServerManager();
+  const [showContent, setShowContent] = useState(false);
 
   const server = servers.find(s => s.config.id === id);
 
-  if (!server) {
+  // Delay showing content for smooth transition
+  useEffect(() => {
+    if (server?.metrics) {
+      const timer = setTimeout(() => setShowContent(true), 50);
+      return () => clearTimeout(timer);
+    }
+  }, [server?.metrics]);
+
+  // Show loading state during initial load or when server data is not yet available
+  if (isInitialLoad || loadingState === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 animate-pulse">
+          <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
+          <div className="text-white/60 text-sm">Loading server data...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // If server not found after data is loaded, show a brief delay before showing error
+  // This prevents flash of "not found" during navigation
+  if (!server) {
+    return (
+      <div className="min-h-screen flex items-center justify-center animate-fadeIn">
         <div className="text-center">
-          <div className="text-gray-500 mb-4">Server not found</div>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
+            <svg className="w-8 h-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+            </svg>
+          </div>
+          <div className="text-gray-400 mb-2 text-lg font-medium">Server Not Available</div>
+          <div className="text-gray-600 text-sm mb-6">The server may have been removed or is offline.</div>
           <button 
             onClick={() => navigate('/')}
-            className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm transition-colors"
+            className="px-6 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium transition-all hover:scale-105"
           >
             ← Back to Dashboard
           </button>
@@ -494,11 +524,12 @@ export default function ServerDetail() {
 
   const { metrics, speed, isConnected, config } = server;
 
+  // Show connecting state if metrics not yet available
   if (!metrics) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin" />
+          <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
           <div className="text-white/60 text-sm">Connecting to {config.name}...</div>
         </div>
       </div>
@@ -507,10 +538,12 @@ export default function ServerDetail() {
 
   const OsIcon = getOsIcon(metrics.os.name);
   const ProviderIcon = config.provider ? getProviderIcon(config.provider) : null;
+  const providerLogo = config.provider && config.provider !== 'Local' ? getProviderLogo(config.provider) : null;
+  const distributionLogo = getDistributionLogo(metrics.os.name);
   const flag = FLAGS[config.location || ''] || '🌍';
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto">
+    <div className={`min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto ${showContent ? 'animate-slideUp' : 'opacity-0'}`}>
       {/* Back Button */}
       <button 
         onClick={() => navigate('/')}
@@ -534,18 +567,28 @@ export default function ServerDetail() {
               <span className={`w-3 h-3 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]' : 'bg-red-500'}`} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {OsIcon && (
+              {distributionLogo ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <LogoImage src={distributionLogo} alt={metrics.os.name} className="w-4 h-4 object-contain" />
+                  <span className="text-xs text-blue-300 font-medium">{metrics.os.name}</span>
+                </div>
+              ) : OsIcon ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-500/10 border border-blue-500/20">
                   <OsIcon className="w-4 h-4 text-blue-400" />
                   <span className="text-xs text-blue-300 font-medium">{metrics.os.name}</span>
                 </div>
-              )}
-              {ProviderIcon && (
+              ) : null}
+              {providerLogo ? (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <LogoImage src={providerLogo} alt={config.provider || ''} className="w-4 h-4 object-contain" />
+                  <span className="text-xs text-amber-300 font-medium">{config.provider}</span>
+                </div>
+              ) : ProviderIcon ? (
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20">
                   <ProviderIcon className="w-4 h-4 text-amber-400" />
                   <span className="text-xs text-amber-300 font-medium">{config.provider}</span>
                 </div>
-              )}
+              ) : null}
               <div className="px-2.5 py-1 rounded-lg bg-purple-500/10 border border-purple-500/20">
                 <span className="text-xs text-purple-300">{metrics.os.arch}</span>
               </div>

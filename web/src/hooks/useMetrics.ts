@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import type { SystemMetrics, SiteSettings } from '../types';
 
 interface NetworkSpeed {
@@ -23,6 +23,9 @@ export interface ServerState {
   isConnected: boolean;
   error: string | null;
 }
+
+// Loading state for initial data fetch
+export type LoadingState = 'idle' | 'loading' | 'ready' | 'error';
 
 // Message from dashboard WebSocket
 interface DashboardMessage {
@@ -50,11 +53,13 @@ const defaultSiteSettings: SiteSettings = {
 
 export function useServerManager() {
   const [servers, setServers] = useState<ServerState[]>([]);
-
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
+  const [loadingState, setLoadingState] = useState<LoadingState>('loading');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const lastMetricsMap = useRef<Map<string, { metrics: SystemMetrics, time: number }>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
+  const initialDataReceived = useRef(false);
 
   // Connect to dashboard WebSocket
   useEffect(() => {
@@ -79,7 +84,13 @@ export function useServerManager() {
               setSiteSettings(data.site_settings);
             }
             
-              if (data.type === 'metrics' && data.servers) {
+            if (data.type === 'metrics' && data.servers) {
+              // Mark initial data as received
+              if (!initialDataReceived.current) {
+                initialDataReceived.current = true;
+                setLoadingState('ready');
+                setIsInitialLoad(false);
+              }
               const now = Date.now();
               
               setServers(prev => {
@@ -148,6 +159,10 @@ export function useServerManager() {
         ws.onclose = () => {
           console.log('[Dashboard] WebSocket disconnected, reconnecting...');
           wsRef.current = null;
+          // Don't reset loading state on reconnect if we already have data
+          if (!initialDataReceived.current) {
+            setLoadingState('loading');
+          }
           setTimeout(connect, 3000);
         };
 
@@ -175,7 +190,9 @@ export function useServerManager() {
       try {
         const res = await fetch('/api/metrics');
         if (!res.ok) return;
-        const metrics: SystemMetrics = await res.json();
+        const data: SystemMetrics & { local_node?: { name?: string; location?: string; provider?: string; tag?: string } } = await res.json();
+        const metrics = data as SystemMetrics;
+        const localNodeConfig = (data as any).local_node || {};
         const now = Date.now();
         
         setServers(prev => {
@@ -208,10 +225,11 @@ export function useServerManager() {
           const localServer: ServerState = {
             config: {
               id: 'local',
-              name: metrics.hostname || 'Local Server',
+              name: localNodeConfig.name || metrics.hostname || 'Local Server',
               type: 'local',
-              location: '',
-              provider: 'Local',
+              location: localNodeConfig.location || '',
+              provider: localNodeConfig.provider || 'Local',
+              tag: localNodeConfig.tag || '',
             },
             metrics,
             speed: newSpeed,
@@ -234,7 +252,12 @@ export function useServerManager() {
     return () => clearInterval(interval);
   }, []);
 
-  return { servers, siteSettings };
+  // Get a server by ID (with cached lookup)
+  const getServerById = useCallback((id: string): ServerState | undefined => {
+    return servers.find(s => s.config.id === id);
+  }, [servers]);
+
+  return { servers, siteSettings, loadingState, isInitialLoad, getServerById };
 }
 
 export function formatBytes(bytes: number): string {

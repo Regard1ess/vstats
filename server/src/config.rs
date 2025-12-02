@@ -48,6 +48,29 @@ pub fn generate_random_string(len: usize) -> String {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LocalNodeConfig {
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub location: String,
+    #[serde(default)]
+    pub provider: String,
+    #[serde(default)]
+    pub tag: String,
+}
+
+impl Default for LocalNodeConfig {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            location: String::new(),
+            provider: String::new(),
+            tag: String::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub admin_password_hash: String,
     #[serde(default = "default_jwt_secret")]
@@ -55,6 +78,8 @@ pub struct AppConfig {
     pub servers: Vec<RemoteServer>,
     #[serde(default)]
     pub site_settings: SiteSettings,
+    #[serde(default)]
+    pub local_node: LocalNodeConfig,
 }
 
 fn default_jwt_secret() -> String {
@@ -111,6 +136,7 @@ impl Default for AppConfig {
                 site_description: "Real-time Server Monitoring".to_string(),
                 social_links: vec![],
             },
+            local_node: LocalNodeConfig::default(),
         }
     }
 }
@@ -129,6 +155,7 @@ impl AppConfig {
                 site_description: "Real-time Server Monitoring".to_string(),
                 social_links: vec![],
             },
+            local_node: LocalNodeConfig::default(),
         };
         (config, password)
     }

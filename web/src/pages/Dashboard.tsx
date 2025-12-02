@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useServerManager, formatSpeed, formatUptime, type ServerState } from '../hooks/useMetrics';
 import { getOsIcon, getProviderIcon } from '../components/Icons';
+import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUtils';
 import { useTheme } from '../context/ThemeContext';
 import type { SocialLink } from '../types';
 
@@ -91,12 +92,16 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
   
   const OsIcon = metrics ? getOsIcon(metrics.os.name) : null;
   const ProviderIcon = config.provider && config.provider !== 'Local' ? getProviderIcon(config.provider) : null;
-  const flag = config.type === 'local' ? '🏠' : (FLAGS[config.location || ''] || '🌍');
+  const providerLogo = config.provider && config.provider !== 'Local' ? getProviderLogo(config.provider) : null;
+  const distributionLogo = metrics ? getDistributionLogo(metrics.os.name) : null;
+  const flag = config.location ? FLAGS[config.location] : null;
 
   if (!metrics) {
     return (
       <div className="nezha-card p-4 flex items-center gap-4 animate-pulse cursor-pointer" onClick={onClick}>
-        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-lg">{flag}</div>
+        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center">
+          <div className="w-6 h-6 bg-white/10 rounded"></div>
+        </div>
         <div className="flex-1">
           <div className="h-4 bg-white/10 rounded w-32 mb-2"></div>
           <div className="h-3 bg-white/5 rounded w-24"></div>
@@ -113,8 +118,19 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
     >
       {/* Column 1: Identity with Icons */}
       <div className="w-full lg:w-56 shrink-0 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 group-hover:border-white/20 flex items-center justify-center text-xl shrink-0 transition-colors">
-          {flag}
+        {/* Main Icon: System Logo */}
+        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 group-hover:border-white/20 flex items-center justify-center shrink-0 transition-colors overflow-hidden">
+          {distributionLogo ? (
+            <LogoImage src={distributionLogo} alt={metrics.os.name} className="w-8 h-8 object-contain p-1" />
+          ) : OsIcon ? (
+            <OsIcon className="w-6 h-6 text-blue-400" />
+          ) : (
+            <div className="w-6 h-6 bg-blue-500/20 rounded flex items-center justify-center">
+              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+            </div>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -122,17 +138,21 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
             <span className={`w-2 h-2 rounded-full shrink-0 ${isConnected ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-red-500'}`} />
           </div>
           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-            {OsIcon && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/20" title={metrics.os.name}>
-                <OsIcon className="w-3.5 h-3.5 text-blue-400" />
-                <span className="text-[10px] text-blue-300 font-medium">{metrics.os.name.split(' ')[0]}</span>
+            {config.location && flag && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-cyan-500/10 border border-cyan-500/20" title={`Location: ${config.location}`}>
+                <span className="text-xs">{flag}</span>
+                <span className="text-[10px] text-cyan-300 font-medium">{config.location}</span>
               </div>
             )}
-            {ProviderIcon && (
+            {providerLogo ? (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20" title={config.provider || ''}>
+                <LogoImage src={providerLogo} alt={config.provider || ''} className="w-3.5 h-3.5 object-contain" />
+              </div>
+            ) : ProviderIcon ? (
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20" title={config.provider}>
                 <ProviderIcon className="w-3.5 h-3.5 text-amber-400" />
               </div>
-            )}
+            ) : null}
             {config.tag && (
               <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px] font-medium">
                 {config.tag}
@@ -199,13 +219,17 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
   const { metrics, speed, isConnected, config } = server;
   
   const OsIcon = metrics ? getOsIcon(metrics.os.name) : null;
-  const flag = FLAGS[config.location || ''] || (config.type === 'local' ? '🏠' : '🌍');
+  const providerLogo = config.provider && config.provider !== 'Local' ? getProviderLogo(config.provider) : null;
+  const distributionLogo = metrics ? getDistributionLogo(metrics.os.name) : null;
+  const flag = config.location ? FLAGS[config.location] : null;
 
   if (!metrics) {
     return (
       <div className="nezha-card p-4 animate-pulse cursor-pointer aspect-square flex flex-col" onClick={onClick}>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-2xl">{flag}</span>
+          <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center">
+            <div className="w-5 h-5 bg-white/10 rounded"></div>
+          </div>
           <div className="h-4 skeleton-bg rounded flex-1"></div>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -231,7 +255,19 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
     >
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-xl">{flag}</span>
+        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+          {distributionLogo ? (
+            <LogoImage src={distributionLogo} alt={metrics?.os.name || ''} className="w-6 h-6 object-contain p-0.5" />
+          ) : OsIcon ? (
+            <OsIcon className="w-5 h-5 text-blue-400" />
+          ) : (
+            <div className="w-5 h-5 bg-blue-500/20 rounded flex items-center justify-center">
+              <svg className="w-3 h-3 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+              </svg>
+            </div>
+          )}
+        </div>
         <h3 className="font-bold truncate text-sm flex-1 group-hover:text-emerald-500 transition-colors" style={{ color: 'var(--text-primary)' }}>
           {config.name}
         </h3>
@@ -292,7 +328,15 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
       {/* Footer Info */}
       <div className="flex items-center justify-between pt-2 text-[10px] border-theme" style={{ borderTopWidth: '1px' }}>
         <div className="flex items-center gap-1 flex-wrap">
-          {OsIcon && <OsIcon className="w-3 h-3 text-blue-500" />}
+          {config.location && flag && (
+            <div className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[9px]">
+              <span>{flag}</span>
+              <span>{config.location}</span>
+            </div>
+          )}
+          {providerLogo && (
+            <LogoImage src={providerLogo} alt={config.provider || ''} className="w-3 h-3 object-contain" />
+          )}
           {config.tag && (
             <span className="px-1 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[9px]">
               {config.tag}
@@ -314,13 +358,60 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
   );
 }
 
+// Loading skeleton for server cards
+function ServerCardSkeleton() {
+  return (
+    <div className="nezha-card p-4 md:p-5 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6 animate-pulse">
+      <div className="w-full lg:w-56 shrink-0 flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10" />
+        <div className="flex-1">
+          <div className="h-4 bg-white/10 rounded w-32 mb-2" />
+          <div className="h-3 bg-white/5 rounded w-24" />
+        </div>
+      </div>
+      <div className="flex-1 w-full grid grid-cols-3 gap-3 lg:gap-6">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="space-y-1">
+            <div className="h-3 bg-white/5 rounded w-12" />
+            <div className="h-1 bg-gray-700/50 rounded-full" />
+          </div>
+        ))}
+      </div>
+      <div className="w-full lg:w-40 flex flex-row lg:flex-col justify-between lg:justify-center items-end lg:items-end gap-1 shrink-0">
+        <div className="h-4 bg-white/5 rounded w-16" />
+        <div className="h-4 bg-white/5 rounded w-16" />
+      </div>
+    </div>
+  );
+}
+
+function ServerGridCardSkeleton() {
+  return (
+    <div className="nezha-card p-4 animate-pulse aspect-square flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/10" />
+        <div className="h-4 bg-white/10 rounded flex-1" />
+      </div>
+      <div className="flex-1 flex items-center justify-center gap-3">
+        {[1, 2, 3].map(i => (
+          <div key={i} className="w-14 h-14 rounded-full bg-white/5" />
+        ))}
+      </div>
+      <div className="flex justify-between pt-2 border-t border-white/5">
+        <div className="h-3 bg-white/5 rounded w-12" />
+        <div className="h-3 bg-white/5 rounded w-16" />
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { servers, siteSettings } = useServerManager();
+  const { servers, siteSettings, isInitialLoad } = useServerManager();
   const { theme, toggleTheme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     // Persist view mode preference
-    return (localStorage.getItem('vstats-view-mode') as ViewMode) || 'list';
+    return (localStorage.getItem('vstats-view-mode') as ViewMode) || 'grid';
   });
 
   const toggleViewMode = () => {
@@ -332,6 +423,9 @@ export default function Dashboard() {
   const onlineCount = servers.filter(s => s.isConnected).length;
   const totalBandwidthRx = servers.reduce((acc, s) => acc + s.speed.rx_sec, 0);
   const totalBandwidthTx = servers.reduce((acc, s) => acc + s.speed.tx_sec, 0);
+
+  // Show loading skeleton during initial load
+  const showSkeleton = isInitialLoad && servers.length === 0;
 
   return (
     <div className="min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto flex flex-col gap-6">
@@ -419,26 +513,47 @@ export default function Dashboard() {
           <span className="font-mono text-gray-700">{new Date().toLocaleTimeString()}</span>
         </div>
         
-        {viewMode === 'list' ? (
-          // List View
+        {showSkeleton ? (
+          // Loading Skeleton
+          viewMode === 'list' ? (
+            <div className="flex flex-col gap-3">
+              {[1, 2, 3].map(i => <ServerCardSkeleton key={i} />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map(i => <ServerGridCardSkeleton key={i} />)}
+            </div>
+          )
+        ) : viewMode === 'list' ? (
+          // List View with smooth transitions
           <div className="flex flex-col gap-3">
-            {servers.map(server => (
-              <ServerCard 
-                key={server.config.id} 
-                server={server} 
-                onClick={() => navigate(`/server/${server.config.id}`)}
-              />
+            {servers.map((server, index) => (
+              <div 
+                key={server.config.id}
+                className="animate-fadeIn"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
+                <ServerCard 
+                  server={server} 
+                  onClick={() => navigate(`/server/${server.config.id}`)}
+                />
+              </div>
             ))}
           </div>
         ) : (
-          // Grid View
+          // Grid View with smooth transitions
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-            {servers.map(server => (
-              <ServerGridCard 
-                key={server.config.id} 
-                server={server} 
-                onClick={() => navigate(`/server/${server.config.id}`)}
-              />
+            {servers.map((server, index) => (
+              <div 
+                key={server.config.id}
+                className="animate-fadeIn"
+                style={{ animationDelay: `${index * 30}ms` }}
+              >
+                <ServerGridCard 
+                  server={server} 
+                  onClick={() => navigate(`/server/${server.config.id}`)}
+                />
+              </div>
             ))}
           </div>
         )}

@@ -1,7 +1,48 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import type { SiteSettings, SocialLink } from '../types';
+
+// Universal copy to clipboard function that works in all contexts
+const copyTextToClipboard = async (text: string): Promise<boolean> => {
+  try {
+    // Try modern clipboard API first (requires secure context)
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    // Fallback for non-secure contexts (http://localhost, etc.)
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const success = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return success;
+  } catch (e) {
+    console.error('Failed to copy', e);
+    // Last resort fallback
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const success = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      return success;
+    } catch {
+      return false;
+    }
+  }
+};
 
 interface RemoteServer {
   id: string;
@@ -68,6 +109,14 @@ export default function Settings() {
   const [editingServer, setEditingServer] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: '', location: '', provider: '', tag: '' });
   const [editLoading, setEditLoading] = useState(false);
+  const [editSuccess, setEditSuccess] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  
+  // Local node config
+  const [localNodeConfig, setLocalNodeConfig] = useState({ name: '', location: '', provider: '', tag: '' });
+  const [showLocalNodeForm, setShowLocalNodeForm] = useState(false);
+  const [localNodeSaving, setLocalNodeSaving] = useState(false);
+  const [localNodeSuccess, setLocalNodeSuccess] = useState(false);
 
   useEffect(() => {
     // Wait for auth check to complete before redirecting
@@ -79,6 +128,7 @@ export default function Settings() {
     }
     fetchServers();
     fetchSiteSettings();
+    fetchLocalNodeConfig();
     generateInstallCommand();
     fetchAgentStatus();
     fetchServerVersion();
@@ -150,6 +200,50 @@ export default function Settings() {
     }
   };
   
+  const fetchLocalNodeConfig = async () => {
+    try {
+      const res = await fetch('/api/settings/local-node', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLocalNodeConfig(data);
+      }
+    } catch (e) {
+      console.error('Failed to fetch local node config', e);
+    }
+  };
+  
+  const saveLocalNodeConfig = async () => {
+    setLocalNodeSaving(true);
+    setLocalNodeSuccess(false);
+    
+    try {
+      const res = await fetch('/api/settings/local-node', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(localNodeConfig)
+      });
+      
+      if (res.ok) {
+        setLocalNodeSuccess(true);
+        setTimeout(() => {
+          setShowLocalNodeForm(false);
+          setLocalNodeSuccess(false);
+        }, 1500);
+      }
+    } catch (e) {
+      console.error('Failed to save local node config', e);
+    }
+    
+    setLocalNodeSaving(false);
+  };
+  
   const saveSiteSettings = async () => {
     setSiteSettingsSaving(true);
     setSiteSettingsSuccess(false);
@@ -208,15 +302,23 @@ export default function Settings() {
     setInstallCommand(command);
   };
   
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(installCommand);
+  const copyToClipboard = useCallback(async () => {
+    const success = await copyTextToClipboard(installCommand);
+    if (success) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error('Failed to copy', e);
     }
-  };
+  }, [installCommand]);
+  
+  // Copy token to clipboard with feedback
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  const copyToken = useCallback(async (token: string) => {
+    const success = await copyTextToClipboard(token);
+    if (success) {
+      setCopiedToken(token);
+      setTimeout(() => setCopiedToken(null), 2000);
+    }
+  }, []);
 
   const fetchServers = async () => {
     try {
@@ -271,25 +373,51 @@ export default function Settings() {
   
   const saveEditServer = async () => {
     if (!editingServer) return;
+    
+    // 验证必填字段
+    if (!editForm.name.trim()) {
+      setEditError('Server name is required');
+      return;
+    }
+    
     setEditLoading(true);
+    setEditSuccess(false);
+    setEditError(null);
+    
     try {
+      // 发送所有字段，空字符串表示清空该字段（除了name）
+      const updateData: Record<string, string> = {
+        name: editForm.name.trim(),
+        location: editForm.location.trim(),
+        provider: editForm.provider.trim(),
+        tag: editForm.tag.trim(),
+      };
+      
       const res = await fetch(`/api/servers/${editingServer}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(editForm)
+        body: JSON.stringify(updateData)
       });
       
       if (res.ok) {
         const updated = await res.json();
         setServers(servers.map(s => s.id === editingServer ? updated : s));
-        setEditingServer(null);
-        setEditForm({ name: '', location: '', provider: '', tag: '' });
+        setEditSuccess(true);
+        setTimeout(() => {
+          setEditingServer(null);
+          setEditForm({ name: '', location: '', provider: '', tag: '' });
+          setEditSuccess(false);
+        }, 1500);
+      } else {
+        const errorData = await res.json().catch(() => ({ message: 'Failed to update server' }));
+        setEditError(errorData.message || 'Failed to update server');
       }
     } catch (e) {
       console.error('Failed to update server', e);
+      setEditError('Network error: Failed to update server');
     } finally {
       setEditLoading(false);
     }
@@ -570,12 +698,12 @@ export default function Settings() {
         )}
       </div>
 
-      {/* Server Management Section */}
+      {/* Server Management Section - Combined Local + Agents */}
       <div className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            Connected Agents
+            Server Management
           </h2>
           <button
             onClick={() => setShowAddForm(true)}
@@ -584,9 +712,16 @@ export default function Settings() {
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Add Manually
+            Add Agent
           </button>
         </div>
+
+        {/* Success messages */}
+        {localNodeSuccess && (
+          <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+            Configuration saved successfully!
+          </div>
+        )}
 
         {showAddForm && (
           <form onSubmit={addServer} className="mb-6 p-4 rounded-xl bg-white/[0.02] border border-white/10">
@@ -644,14 +779,112 @@ export default function Settings() {
           </form>
         )}
 
-        {servers.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <p>No agents connected</p>
-            <p className="text-sm mt-1">Install the agent on a server using the command above</p>
+        {/* Server List - Local Node First, then Agents */}
+        <div className="space-y-3">
+          {/* Local Node (Dashboard Server) */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-500/5 to-transparent border border-emerald-500/20 hover:border-emerald-500/30 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-white">{localNodeConfig.name || 'Dashboard Server'}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase">Local</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    {localNodeConfig.location && (
+                      <span className="text-xs text-gray-500">{localNodeConfig.location}</span>
+                    )}
+                    {localNodeConfig.provider && (
+                      <span className="text-xs text-gray-600">{localNodeConfig.provider}</span>
+                    )}
+                    {localNodeConfig.tag && (
+                      <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-xs">
+                        {localNodeConfig.tag}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLocalNodeForm(!showLocalNodeForm)}
+                className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs transition-colors"
+              >
+                {showLocalNodeForm ? 'Cancel' : 'Edit'}
+              </button>
+            </div>
+            
+            {/* Local Node Edit Form */}
+            {showLocalNodeForm && (
+              <div className="mt-4 pt-4 border-t border-emerald-500/10">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Name</label>
+                    <input
+                      type="text"
+                      value={localNodeConfig.name}
+                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, name: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      placeholder="e.g., Dashboard Server"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Tag</label>
+                    <input
+                      type="text"
+                      value={localNodeConfig.tag}
+                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, tag: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      placeholder="e.g., Dashboard, Main"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Location</label>
+                    <input
+                      type="text"
+                      value={localNodeConfig.location}
+                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, location: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      placeholder="e.g., US, CN, HK"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Provider</label>
+                    <input
+                      type="text"
+                      value={localNodeConfig.provider}
+                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, provider: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      placeholder="e.g., AWS, Vultr, Self-hosted"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={saveLocalNodeConfig}
+                    disabled={localNodeSaving}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {localNodeSaving ? 'Saving...' : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="space-y-3">
-            {servers.map((server) => {
+
+          {/* Remote Agents */}
+          {servers.length === 0 ? (
+            <div className="text-center py-6 text-gray-500 border border-dashed border-white/10 rounded-xl">
+              <p>No remote agents connected</p>
+              <p className="text-sm mt-1">Install the agent on a server using the command above</p>
+            </div>
+          ) : (
+            servers.map((server) => {
               const isOnline = agentStatus[server.id] || false;
               const isUpdating = updatingAgents[server.id] || false;
               
@@ -660,11 +893,12 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-sm font-bold text-blue-400">
-                        {server.location}
+                        {server.location || '??'}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-medium text-white">{server.name}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold uppercase">Agent</span>
                           <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]' : 'bg-gray-500'}`} />
                           <span className={`text-xs ${isOnline ? 'text-emerald-400' : 'text-gray-500'}`}>
                             {isOnline ? 'Online' : 'Offline'}
@@ -736,15 +970,26 @@ export default function Settings() {
                   {/* Edit Form */}
                   {editingServer === server.id && (
                     <div className="mt-4 pt-4 border-t border-white/5">
+                      {editSuccess && (
+                        <div className="mb-3 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+                          ✓ Server information updated successfully!
+                        </div>
+                      )}
+                      {editError && (
+                        <div className="mb-3 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                          ✗ {editError}
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                         <div>
-                          <label className="block text-xs text-gray-500 mb-1">Name</label>
+                          <label className="block text-xs text-gray-500 mb-1">Name <span className="text-red-400">*</span></label>
                           <input
                             type="text"
                             value={editForm.name}
                             onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                             placeholder="Server name"
+                            required
                           />
                         </div>
                         <div>
@@ -804,17 +1049,24 @@ export default function Settings() {
                       <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Agent Token</div>
                       <div className="flex items-center gap-2">
                         <code className="flex-1 px-2 py-1 rounded bg-black/20 text-xs text-emerald-400 font-mono truncate">{server.token}</code>
-                        <button onClick={() => navigator.clipboard.writeText(server.token || '')} className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs transition-colors">
-                          Copy
+                        <button 
+                          onClick={() => copyToken(server.token || '')} 
+                          className={`px-2 py-1 rounded text-xs transition-colors ${
+                            copiedToken === server.token 
+                              ? 'bg-emerald-500/20 text-emerald-400' 
+                              : 'bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {copiedToken === server.token ? 'Copied!' : 'Copy'}
                         </button>
                       </div>
                     </div>
                   )}
                 </div>
               );
-            })}
-          </div>
-        )}
+            })
+          )}
+        </div>
       </div>
 
       {/* Version Info Section */}

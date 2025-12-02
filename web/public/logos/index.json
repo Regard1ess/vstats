@@ -1,0 +1,270 @@
+{
+  "providers": [
+    {
+      "name": "AWS",
+      "filename": "aws.svg",
+      "path": "logos/providers/aws.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Alibaba Cloud",
+      "filename": "alibaba_cloud.svg",
+      "path": "logos/providers/alibaba_cloud.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Tencent Cloud",
+      "filename": "tencent_cloud.svg",
+      "path": "logos/providers/tencent_cloud.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Vultr",
+      "filename": "vultr.svg",
+      "path": "logos/providers/vultr.svg",
+      "format": "svg"
+    },
+    {
+      "name": "DigitalOcean",
+      "filename": "digitalocean.png",
+      "path": "logos/providers/digitalocean.png",
+      "format": "png"
+    },
+    {
+      "name": "Linode",
+      "filename": "linode.png",
+      "path": "logos/providers/linode.png",
+      "format": "png"
+    },
+    {
+      "name": "Bandwagon",
+      "filename": "bandwagon.png",
+      "path": "logos/providers/bandwagon.png",
+      "format": "png"
+    },
+    {
+      "name": "Huawei Cloud",
+      "filename": "huawei_cloud.svg",
+      "path": "logos/providers/huawei_cloud.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Google Cloud",
+      "filename": "google_cloud.png",
+      "path": "logos/providers/google_cloud.png",
+      "format": "png"
+    },
+    {
+      "name": "Azure",
+      "filename": "azure.svg",
+      "path": "logos/providers/azure.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Oracle Cloud",
+      "filename": "oracle_cloud.svg",
+      "path": "logos/providers/oracle_cloud.svg",
+      "format": "svg"
+    },
+    {
+      "name": "IBM Cloud",
+      "filename": "ibm_cloud.svg",
+      "path": "logos/providers/ibm_cloud.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Cloudflare",
+      "filename": "cloudflare.svg",
+      "path": "logos/providers/cloudflare.svg",
+      "format": "svg"
+    },
+    {
+      "name": "OVH",
+      "filename": "ovh.svg",
+      "path": "logos/providers/ovh.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Hetzner",
+      "filename": "hetzner.svg",
+      "path": "logos/providers/hetzner.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Scaleway",
+      "filename": "scaleway.svg",
+      "path": "logos/providers/scaleway.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Contabo",
+      "filename": "contabo.svg",
+      "path": "logos/providers/contabo.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Kamatera",
+      "filename": "kamatera.svg",
+      "path": "logos/providers/kamatera.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Rackspace",
+      "filename": "rackspace.svg",
+      "path": "logos/providers/rackspace.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Joyent",
+      "filename": "joyent.svg",
+      "path": "logos/providers/joyent.svg",
+      "format": "svg"
+    }
+  ],
+  "distributions": [
+    {
+      "name": "Ubuntu",
+      "filename": "ubuntu.png",
+      "path": "logos/distributions/ubuntu.png",
+      "format": "png"
+    },
+    {
+      "name": "Debian",
+      "filename": "debian.svg",
+      "path": "logos/distributions/debian.svg",
+      "format": "svg"
+    },
+    {
+      "name": "CentOS",
+      "filename": "centos.svg",
+      "path": "logos/distributions/centos.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Rocky Linux",
+      "filename": "rocky_linux.svg",
+      "path": "logos/distributions/rocky_linux.svg",
+      "format": "svg"
+    },
+    {
+      "name": "AlmaLinux",
+      "filename": "almalinux.svg",
+      "path": "logos/distributions/almalinux.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Fedora",
+      "filename": "fedora.svg",
+      "path": "logos/distributions/fedora.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Red Hat",
+      "filename": "red_hat.svg",
+      "path": "logos/distributions/red_hat.svg",
+      "format": "svg"
+    },
+    {
+      "name": "SUSE",
+      "filename": "suse.svg",
+      "path": "logos/distributions/suse.svg",
+      "format": "svg"
+    },
+    {
+      "name": "openSUSE",
+      "filename": "opensuse.svg",
+      "path": "logos/distributions/opensuse.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Arch Linux",
+      "filename": "arch_linux.png",
+      "path": "logos/distributions/arch_linux.png",
+      "format": "png"
+    },
+    {
+      "name": "Manjaro",
+      "filename": "manjaro.svg",
+      "path": "logos/distributions/manjaro.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Gentoo",
+      "filename": "gentoo.svg",
+      "path": "logos/distributions/gentoo.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Slackware",
+      "filename": "slackware.svg",
+      "path": "logos/distributions/slackware.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Mint",
+      "filename": "mint.svg",
+      "path": "logos/distributions/mint.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Elementary OS",
+      "filename": "elementary_os.svg",
+      "path": "logos/distributions/elementary_os.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Pop!_OS",
+      "filename": "pop_os.svg",
+      "path": "logos/distributions/pop_os.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Kali Linux",
+      "filename": "kali_linux.svg",
+      "path": "logos/distributions/kali_linux.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Parrot OS",
+      "filename": "parrot_os.svg",
+      "path": "logos/distributions/parrot_os.svg",
+      "format": "svg"
+    },
+    {
+      "name": "Windows",
+      "filename": "windows.svg",
+      "path": "logos/distributions/windows.svg",
+      "format": "svg"
+    },
+    {
+      "name": "macOS",
+      "filename": "macos.svg",
+      "path": "logos/distributions/macos.svg",
+      "format": "svg"
+    },
+    {
+      "name": "FreeBSD",
+      "filename": "freebsd.svg",
+      "path": "logos/distributions/freebsd.svg",
+      "format": "svg"
+    },
+    {
+      "name": "OpenBSD",
+      "filename": "openbsd.svg",
+      "path": "logos/distributions/openbsd.svg",
+      "format": "svg"
+    },
+    {
+      "name": "NetBSD",
+      "filename": "netbsd.svg",
+      "path": "logos/distributions/netbsd.svg",
+      "format": "svg"
+    },
+    {
+      "name": "DragonFly BSD",
+      "filename": "dragonfly_bsd.svg",
+      "path": "logos/distributions/dragonfly_bsd.svg",
+      "format": "svg"
+    }
+  ]
+}

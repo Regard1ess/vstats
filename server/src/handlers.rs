@@ -12,7 +12,7 @@ use std::{collections::HashMap, time::Duration as StdDuration};
 use sysinfo::{CpuRefreshKind, Disks, Networks, System};
 
 use crate::collector::collect_metrics;
-use crate::config::{get_jwt_secret, save_config, RemoteServer, SiteSettings};
+use crate::config::{get_jwt_secret, save_config, LocalNodeConfig, RemoteServer, SiteSettings};
 use crate::state::AppState;
 use crate::types::{
     AddServerRequest, AgentRegisterRequest, AgentRegisterResponse, ChangePasswordRequest, Claims,
@@ -173,6 +173,26 @@ pub async fn update_site_settings(
     config.site_settings = settings;
     save_config(&config);
     StatusCode::OK
+}
+
+// ============================================================================
+// Local Node Configuration Handlers
+// ============================================================================
+
+pub async fn get_local_node_config(State(state): State<AppState>) -> Json<LocalNodeConfig> {
+    let config = state.config.read().await;
+    Json(config.local_node.clone())
+}
+
+pub async fn update_local_node_config(
+    State(state): State<AppState>,
+    Json(req): Json<LocalNodeConfig>,
+) -> Result<Json<LocalNodeConfig>, StatusCode> {
+    let mut config = state.config.write().await;
+    config.local_node = req;
+    let local_node = config.local_node.clone();
+    save_config(&config);
+    Ok(Json(local_node))
 }
 
 // ============================================================================
@@ -457,7 +477,14 @@ pub async fn get_history(
 // Metrics Handlers
 // ============================================================================
 
-pub async fn get_metrics() -> Json<SystemMetrics> {
+#[derive(Debug, Serialize)]
+pub struct LocalMetricsResponse {
+    #[serde(flatten)]
+    pub metrics: SystemMetrics,
+    pub local_node: LocalNodeConfig,
+}
+
+pub async fn get_metrics(State(state): State<AppState>) -> Json<LocalMetricsResponse> {
     let mut sys = System::new_all();
     let disks = Disks::new_with_refreshed_list();
     let networks = Networks::new_with_refreshed_list();
@@ -465,7 +492,13 @@ pub async fn get_metrics() -> Json<SystemMetrics> {
     std::thread::sleep(StdDuration::from_millis(200));
     sys.refresh_cpu_specifics(CpuRefreshKind::everything());
 
-    Json(collect_metrics(&mut sys, &disks, &networks))
+    let metrics = collect_metrics(&mut sys, &disks, &networks);
+    let config = state.config.read().await;
+    
+    Json(LocalMetricsResponse {
+        metrics,
+        local_node: config.local_node.clone(),
+    })
 }
 
 pub async fn get_all_metrics(State(state): State<AppState>) -> Json<Vec<ServerMetricsUpdate>> {

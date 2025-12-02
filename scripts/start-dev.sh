@@ -23,7 +23,7 @@ echo -e "${BLUE}═════════════════════�
 echo ""
 
 # Build frontend
-echo -e "${YELLOW}[1/2]${NC} Building frontend..."
+echo -e "${YELLOW}[1/3]${NC} Building frontend..."
 cd "$WEB_DIR"
 if [ ! -d "node_modules" ]; then
     npm install
@@ -33,7 +33,7 @@ echo -e "${GREEN}✓ Frontend built${NC}"
 echo ""
 
 # Build backend
-echo -e "${YELLOW}[2/2]${NC} Building backend..."
+echo -e "${YELLOW}[2/3]${NC} Building backend..."
 cd "$SERVER_DIR"
 cargo build --release
 echo -e "${GREEN}✓ Backend built${NC}"
@@ -46,10 +46,39 @@ export VSTATS_WEB_DIR="$WEB_DIR/dist"
 
 SERVER_BINARY="$SERVER_DIR/target/release/vstats-server"
 
+# Kill existing vstats-server processes
+echo -e "${YELLOW}[0/3]${NC} Stopping existing services..."
+if pgrep -f "vstats-server" > /dev/null 2>&1; then
+    echo -e "${YELLOW}  Found running vstats-server processes, stopping...${NC}"
+    pkill -f "vstats-server" || true
+    sleep 1
+    # Force kill if still running
+    if pgrep -f "vstats-server" > /dev/null 2>&1; then
+        pkill -9 -f "vstats-server" || true
+        sleep 0.5
+    fi
+    echo -e "${GREEN}✓ Old services stopped${NC}"
+else
+    echo -e "${GREEN}✓ No existing services found${NC}"
+fi
+echo ""
+
+# Reset password to get a fresh one for development
+echo -e "${YELLOW}[3/3]${NC} Resetting admin password..."
+cd "$SERVER_DIR"
+PASSWORD_OUTPUT=$("$SERVER_BINARY" --reset-password 2>&1)
+# Extract password from output (format: "New admin password: {password}")
+ADMIN_PASSWORD=$(echo "$PASSWORD_OUTPUT" | grep "New admin password:" | sed -E 's/.*New admin password: +([^ ]+).*/\1/' | tr -d ' ')
+if [ -z "$ADMIN_PASSWORD" ]; then
+    ADMIN_PASSWORD="admin"
+fi
+echo -e "${GREEN}✓ Password reset${NC}"
+echo ""
+
 echo -e "${BLUE}════════════════════════════════════════${NC}"
 echo -e "${GREEN}Server: http://localhost:3001${NC}"
 echo -e "${GREEN}Web:    $VSTATS_WEB_DIR${NC}"
-echo -e "${GREEN}Pass:   admin${NC}"
+echo -e "${GREEN}Pass:   ${ADMIN_PASSWORD}${NC}"
 echo -e "${BLUE}════════════════════════════════════════${NC}"
 echo ""
 
