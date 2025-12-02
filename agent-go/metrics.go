@@ -201,7 +201,7 @@ func (mc *MetricsCollector) Collect() SystemMetrics {
 		Uptime:      uptime,
 		LoadAverage: la,
 		Ping:        ping,
-		Version:     "0.1.0",
+		Version:     AgentVersion,
 	}
 
 	if len(mc.ipAddresses) > 0 {
