@@ -109,16 +109,47 @@ pub async fn change_password(
     State(state): State<AppState>,
     Json(req): Json<ChangePasswordRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    let mut config = state.config.write().await;
-
-    if bcrypt::verify(&req.current_password, &config.admin_password_hash).unwrap_or(false) {
-        config.admin_password_hash = bcrypt::hash(&req.new_password, bcrypt::DEFAULT_COST)
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-        save_config(&config);
-        Ok(StatusCode::OK)
-    } else {
-        Err(StatusCode::UNAUTHORIZED)
+    // Read latest password hash from config file (supports hot reload after reset)
+    let password_hash = {
+        let config_path = crate::config::get_config_path();
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(file_config) = serde_json::from_str::<serde_json::Value>(&content) {
+                    file_config.get("admin_password_hash")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    };
+    
+    // Fall back to in-memory config if file read fails
+    let password_hash = match password_hash {
+        Some(h) if h.starts_with("$2") => h,
+        _ => {
+            let config = state.config.read().await;
+            config.admin_password_hash.clone()
+        }
+    };
+    
+    // Verify current password
+    if !bcrypt::verify(&req.current_password, &password_hash).unwrap_or(false) {
+        return Err(StatusCode::UNAUTHORIZED);
     }
+    
+    // Update password
+    let mut config = state.config.write().await;
+    config.admin_password_hash = bcrypt::hash(&req.new_password, bcrypt::DEFAULT_COST)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    save_config(&config);
+    
+    Ok(StatusCode::OK)
 }
 
 // ============================================================================
