@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 use crate::config::AppConfig;
-use crate::types::AgentMetricsData;
+use crate::types::{AgentMetricsData, LastSentState};
 
 /// Represents a connected agent's command channel
 pub type AgentCommandSender = mpsc::Sender<Message>;
@@ -17,5 +17,7 @@ pub struct AppState {
     pub db: Arc<Mutex<Connection>>,
     /// Track connected agents by server_id -> command sender
     pub agent_connections: Arc<RwLock<HashMap<String, AgentCommandSender>>>,
+    /// Track last sent state for delta calculation
+    pub last_sent_state: Arc<RwLock<LastSentState>>,
 }
 

@@ -31,7 +31,7 @@ use crate::handlers::{
 };
 use crate::middleware::auth_middleware;
 use crate::state::AppState;
-use crate::types::{DashboardMessage, ServerMetricsUpdate};
+use crate::types::{CompactMetrics, CompactServerUpdate, DeltaMessage, LastSentState};
 use crate::websocket::{agent_ws_handler, ws_handler};
 
 // ============================================================================
@@ -222,6 +222,7 @@ async fn main() {
         agent_metrics: Arc::new(RwLock::new(HashMap::new())),
         db: Arc::new(Mutex::new(db)),
         agent_connections: Arc::new(RwLock::new(HashMap::new())),
+        last_sent_state: Arc::new(RwLock::new(LastSentState::default())),
     };
 
     // Background task for metrics broadcasting and data aggregation
@@ -297,32 +298,39 @@ async fn main() {
             local_metrics_with_speed.network.rx_speed = rx_speed;
             local_metrics_with_speed.network.tx_speed = tx_speed;
 
-            // Broadcast metrics (including local server)
+            // Broadcast delta metrics (only changed data)
             let config = state_clone.config.read().await;
             let agent_metrics = state_clone.agent_metrics.read().await;
+            let mut last_state = state_clone.last_sent_state.write().await;
 
-            // Build updates list: local server first, then remote agents
-            let mut updates: Vec<ServerMetricsUpdate> = Vec::new();
+            // Build compact delta updates
+            let mut delta_updates: Vec<CompactServerUpdate> = Vec::new();
             
-            // Add local server
-            let local_node = &config.local_node;
-            updates.push(ServerMetricsUpdate {
-                server_id: "local".to_string(),
-                server_name: if local_node.name.is_empty() { 
-                    local_metrics_with_speed.hostname.clone() 
-                } else { 
-                    local_node.name.clone() 
-                },
-                location: local_node.location.clone(),
-                provider: if local_node.provider.is_empty() { "Local".to_string() } else { local_node.provider.clone() },
-                tag: local_node.tag.clone(),
-                version: env!("CARGO_PKG_VERSION").to_string(),
-                ip: String::new(),
-                online: true,
-                metrics: Some(local_metrics_with_speed),
-            });
+            // Check local server
+            let local_metrics = CompactMetrics::from_system_metrics(&local_metrics_with_speed);
+            let local_prev = last_state.servers.get("local");
+            let local_changed = local_prev
+                .map(|(_, prev_m)| local_metrics.has_changed(prev_m))
+                .unwrap_or(true);
             
-            // Add remote servers
+            if local_changed {
+                let diff_metrics = if let Some((_, prev_m)) = local_prev {
+                    local_metrics.diff(prev_m)
+                } else {
+                    local_metrics.clone()
+                };
+                
+                if !diff_metrics.is_empty() {
+                    delta_updates.push(CompactServerUpdate {
+                        id: "local".to_string(),
+                        on: Some(true),
+                        m: Some(diff_metrics),
+                    });
+                }
+                last_state.servers.insert("local".to_string(), (true, local_metrics));
+            }
+            
+            // Check remote servers
             for server in &config.servers {
                 let metrics_data = agent_metrics.get(&server.id);
                 let online = metrics_data
@@ -334,31 +342,50 @@ async fn main() {
                     })
                     .unwrap_or(false);
 
-                let version = metrics_data
-                    .and_then(|m| m.metrics.version.clone())
-                    .unwrap_or_else(|| server.version.clone());
-
-                updates.push(ServerMetricsUpdate {
-                    server_id: server.id.clone(),
-                    server_name: server.name.clone(),
-                    location: server.location.clone(),
-                    provider: server.provider.clone(),
-                    tag: server.tag.clone(),
-                    version,
-                    ip: server.ip.clone(),
-                    online,
-                    metrics: metrics_data.map(|m| m.metrics.clone()),
-                });
+                let current_metrics = metrics_data
+                    .map(|m| CompactMetrics::from_system_metrics(&m.metrics))
+                    .unwrap_or_default();
+                
+                let prev = last_state.servers.get(&server.id);
+                let (prev_online, prev_metrics) = prev
+                    .map(|(o, m)| (*o, m.clone()))
+                    .unwrap_or((false, CompactMetrics::default()));
+                
+                // Check if anything changed
+                let online_changed = online != prev_online;
+                let metrics_changed = online && current_metrics.has_changed(&prev_metrics);
+                
+                if online_changed || metrics_changed {
+                    let mut update = CompactServerUpdate {
+                        id: server.id.clone(),
+                        on: if online_changed { Some(online) } else { None },
+                        m: None,
+                    };
+                    
+                    if metrics_changed && online {
+                        update.m = Some(current_metrics.diff(&prev_metrics));
+                    }
+                    
+                    // Only add if there's actual data
+                    if update.on.is_some() || update.m.as_ref().map(|m| !m.is_empty()).unwrap_or(false) {
+                        delta_updates.push(update);
+                    }
+                    
+                    last_state.servers.insert(server.id.clone(), (online, current_metrics));
+                }
             }
 
-            let msg = DashboardMessage {
-                msg_type: "metrics".to_string(),
-                servers: updates,
-                site_settings: Some(config.site_settings.clone()),
-            };
+            // Only send if there are changes
+            if !delta_updates.is_empty() {
+                let msg = DeltaMessage {
+                    msg_type: "delta".to_string(),
+                    ts: Utc::now().timestamp(),
+                    d: delta_updates,
+                };
 
-            if let Ok(json) = serde_json::to_string(&msg) {
-                let _ = state_clone.metrics_tx.send(json);
+                if let Ok(json) = serde_json::to_string(&msg) {
+                    let _ = state_clone.metrics_tx.send(json);
+                }
             }
         }
     });

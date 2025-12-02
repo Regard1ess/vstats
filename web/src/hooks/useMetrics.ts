@@ -27,11 +27,35 @@ export interface ServerState {
 // Loading state for initial data fetch
 export type LoadingState = 'idle' | 'loading' | 'ready' | 'error';
 
-// Message from dashboard WebSocket
+// Full state message from dashboard WebSocket
 interface DashboardMessage {
   type: string;
   servers: ServerMetricsUpdate[];
   site_settings?: SiteSettings;
+}
+
+// Compact delta message
+interface DeltaMessage {
+  type: 'delta';
+  ts: number;
+  d: CompactServerUpdate[];
+}
+
+// Compact server update
+interface CompactServerUpdate {
+  id: string;
+  on?: boolean;
+  m?: CompactMetrics;
+}
+
+// Compact metrics
+interface CompactMetrics {
+  c?: number;  // CPU %
+  m?: number;  // Memory %
+  d?: number;  // Disk %
+  rx?: number; // RX speed
+  tx?: number; // TX speed
+  up?: number; // Uptime
 }
 
 interface ServerMetricsUpdate {
@@ -58,8 +82,54 @@ export function useServerManager() {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   
   const lastMetricsMap = useRef<Map<string, { metrics: SystemMetrics, time: number }>>(new Map());
+  const serversCache = useRef<Map<string, ServerState>>(new Map());
   const wsRef = useRef<WebSocket | null>(null);
   const initialDataReceived = useRef(false);
+
+  // Apply delta update to cached server state
+  const applyDelta = useCallback((delta: CompactServerUpdate) => {
+    const cached = serversCache.current.get(delta.id);
+    if (!cached) return null;
+    
+    const updated = { ...cached };
+    
+    // Update online status
+    if (delta.on !== undefined) {
+      updated.isConnected = delta.on;
+    }
+    
+    // Update metrics from delta
+    if (delta.m && updated.metrics) {
+      const m = delta.m;
+      updated.metrics = { ...updated.metrics };
+      
+      if (m.c !== undefined) {
+        updated.metrics.cpu = { ...updated.metrics.cpu, usage: m.c };
+      }
+      if (m.m !== undefined) {
+        updated.metrics.memory = { ...updated.metrics.memory, usage_percent: m.m };
+      }
+      if (m.d !== undefined && updated.metrics.disks[0]) {
+        updated.metrics.disks = [{ ...updated.metrics.disks[0], usage_percent: m.d }];
+      }
+      if (m.rx !== undefined || m.tx !== undefined) {
+        updated.metrics.network = { 
+          ...updated.metrics.network,
+          rx_speed: m.rx ?? updated.metrics.network.rx_speed,
+          tx_speed: m.tx ?? updated.metrics.network.tx_speed,
+        };
+        updated.speed = {
+          rx_sec: m.rx ?? updated.speed.rx_sec,
+          tx_sec: m.tx ?? updated.speed.tx_sec,
+        };
+      }
+      if (m.up !== undefined) {
+        updated.metrics.uptime = m.up;
+      }
+    }
+    
+    return updated;
+  }, []);
 
   // Connect to dashboard WebSocket - all data (local + remote) comes through here
   useEffect(() => {
@@ -77,14 +147,17 @@ export function useServerManager() {
 
         ws.onmessage = (event) => {
           try {
-            const data = JSON.parse(event.data) as DashboardMessage;
+            const data = JSON.parse(event.data);
             
-            // Update site settings if provided
-            if (data.site_settings) {
-              setSiteSettings(data.site_settings);
-            }
-            
+            // Handle full state message
             if (data.type === 'metrics' && data.servers) {
+              const fullData = data as DashboardMessage;
+              
+              // Update site settings if provided
+              if (fullData.site_settings) {
+                setSiteSettings(fullData.site_settings);
+              }
+              
               // Mark initial data as received
               if (!initialDataReceived.current) {
                 initialDataReceived.current = true;
@@ -94,7 +167,7 @@ export function useServerManager() {
               const now = Date.now();
               
               // All servers (local + remote) come through WebSocket
-              const allServers: ServerState[] = data.servers.map(serverUpdate => {
+              const allServers: ServerState[] = fullData.servers.map(serverUpdate => {
                 const lastData = lastMetricsMap.current.get(serverUpdate.server_id);
                 
                 let newSpeed = { rx_sec: 0, tx_sec: 0 };
@@ -129,7 +202,7 @@ export function useServerManager() {
                 // Determine if this is the local server
                 const isLocal = serverUpdate.server_id === 'local';
 
-                return {
+                const serverState: ServerState = {
                   config: {
                     id: serverUpdate.server_id,
                     name: serverUpdate.server_name,
@@ -144,9 +217,37 @@ export function useServerManager() {
                   isConnected: serverUpdate.online,
                   error: null
                 };
+                
+                // Cache for delta updates
+                serversCache.current.set(serverUpdate.server_id, serverState);
+                
+                return serverState;
               });
 
               setServers(allServers);
+            }
+            // Handle delta update message
+            else if (data.type === 'delta') {
+              const deltaData = data as DeltaMessage;
+              
+              if (deltaData.d && deltaData.d.length > 0) {
+                setServers(prev => {
+                  let hasChanges = false;
+                  const updated = prev.map(server => {
+                    const delta = deltaData.d.find(d => d.id === server.config.id);
+                    if (delta) {
+                      const newState = applyDelta(delta);
+                      if (newState) {
+                        hasChanges = true;
+                        serversCache.current.set(server.config.id, newState);
+                        return newState;
+                      }
+                    }
+                    return server;
+                  });
+                  return hasChanges ? updated : prev;
+                });
+              }
             }
           } catch (e) {
             console.error('[Dashboard] Parse error', e);
@@ -179,7 +280,7 @@ export function useServerManager() {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [applyDelta]);
 
   // Get a server by ID (with cached lookup)
   const getServerById = useCallback((id: string): ServerState | undefined => {

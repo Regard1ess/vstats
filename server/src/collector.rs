@@ -24,9 +24,14 @@ pub fn collect_metrics(sys: &mut System, disks: &Disks, networks: &Networks) -> 
 
     let cpu_freq = sys.cpus().first().map(|c| c.frequency()).unwrap_or(0);
 
+    // Simplified disk collection for local server (show main disk)
     let disk_metrics: Vec<DiskMetrics> = disks
         .list()
         .iter()
+        .filter(|disk| {
+            let mount = disk.mount_point().to_string_lossy();
+            mount == "/" || mount.starts_with("C:")
+        })
         .map(|disk| {
             let total = disk.total_space();
             let available = disk.available_space();
@@ -39,27 +44,37 @@ pub fn collect_metrics(sys: &mut System, disks: &Disks, networks: &Networks) -> 
 
             DiskMetrics {
                 name: disk.name().to_string_lossy().to_string(),
-                mount_point: disk.mount_point().to_string_lossy().to_string(),
-                fs_type: disk.file_system().to_string_lossy().to_string(),
+                model: None,
+                serial: None,
                 total,
-                used,
-                available,
+                disk_type: Some("SSD".to_string()),
+                mount_points: vec![disk.mount_point().to_string_lossy().to_string()],
                 usage_percent: usage,
-                disk_type: None,
+                used,
             }
         })
         .collect();
 
     let mut total_rx = 0u64;
     let mut total_tx = 0u64;
+    // Filter to physical interfaces only
     let interfaces: Vec<NetworkInterface> = networks
         .list()
         .iter()
+        .filter(|(name, _)| {
+            let n = name.to_lowercase();
+            n != "lo" && n != "lo0" && 
+            !n.starts_with("veth") && !n.starts_with("docker") && 
+            !n.starts_with("br-") && !n.starts_with("virbr") &&
+            !n.starts_with("utun") && !n.starts_with("awdl") && !n.starts_with("llw")
+        })
         .map(|(name, data)| {
             total_rx += data.total_received();
             total_tx += data.total_transmitted();
             NetworkInterface {
                 name: name.clone(),
+                mac: None,
+                speed: None,
                 rx_bytes: data.total_received(),
                 tx_bytes: data.total_transmitted(),
                 rx_packets: data.total_packets_received(),
@@ -101,6 +116,7 @@ pub fn collect_metrics(sys: &mut System, disks: &Disks, networks: &Networks) -> 
             swap_total: sys.total_swap(),
             swap_used: sys.used_swap(),
             usage_percent: mem_usage,
+            modules: Vec::new(), // Detailed module info not collected for local server
         },
         disks: disk_metrics,
         network: NetworkMetrics {

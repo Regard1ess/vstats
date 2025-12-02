@@ -49,19 +49,52 @@ pub struct MemoryMetrics {
     pub swap_total: u64,
     pub swap_used: u64,
     pub usage_percent: f32,
+    /// Memory modules info
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub modules: Vec<MemoryModule>,
+}
+
+/// Individual memory module info
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryModule {
+    /// Slot/bank locator (e.g., "DIMM_A1")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot: Option<String>,
+    /// Size in bytes
+    pub size: u64,
+    /// Memory type (e.g., "DDR4", "DDR5")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mem_type: Option<String>,
+    /// Speed in MHz
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<u32>,
+    /// Manufacturer
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manufacturer: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiskMetrics {
+    /// Device name (e.g., "sda", "nvme0n1")
     pub name: String,
-    pub mount_point: String,
-    pub fs_type: String,
+    /// Model name
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
+    /// Serial number
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub serial: Option<String>,
+    /// Total size in bytes
     pub total: u64,
-    pub used: u64,
-    pub available: u64,
+    /// Disk type: "SSD", "HDD", "NVMe"
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disk_type: Option<String>,
+    /// Mount points on this disk
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mount_points: Vec<String>,
+    /// Usage percentage (of largest partition or whole disk)
     pub usage_percent: f32,
-    #[serde(default)]
-    pub disk_type: Option<String>,  // "SSD", "HDD", "NVMe", "Unknown"
+    /// Used space in bytes
+    pub used: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -77,10 +110,21 @@ pub struct NetworkMetrics {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NetworkInterface {
+    /// Interface name (e.g., "eth0", "enp0s3")
     pub name: String,
+    /// MAC address
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
+    /// Speed in Mbps (e.g., 1000 for 1Gbps)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub speed: Option<u32>,
+    /// Total bytes received
     pub rx_bytes: u64,
+    /// Total bytes transmitted
     pub tx_bytes: u64,
+    /// Total packets received
     pub rx_packets: u64,
+    /// Total packets transmitted
     pub tx_packets: u64,
 }
 

@@ -34,17 +34,26 @@ export interface MemoryMetrics {
   swap_total: number;
   swap_used: number;
   usage_percent: number;
+  modules?: MemoryModule[];
+}
+
+export interface MemoryModule {
+  slot?: string;
+  size: number;
+  mem_type?: string;  // "DDR4", "DDR5", etc.
+  speed?: number;     // MHz
+  manufacturer?: string;
 }
 
 export interface DiskMetrics {
   name: string;
-  mount_point: string;
-  fs_type: string;
+  model?: string;
+  serial?: string;
   total: number;
-  used: number;
-  available: number;
-  usage_percent: number;
   disk_type?: string;  // "SSD", "HDD", "NVMe"
+  mount_points?: string[];
+  usage_percent: number;
+  used: number;
 }
 
 export interface NetworkMetrics {
@@ -57,6 +66,8 @@ export interface NetworkMetrics {
 
 export interface NetworkInterface {
   name: string;
+  mac?: string;
+  speed?: number;  // Mbps
   rx_bytes: number;
   tx_bytes: number;
   rx_packets: number;

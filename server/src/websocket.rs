@@ -242,7 +242,7 @@ async fn handle_agent_socket(socket: WebSocket, state: AppState, client_ip: Stri
                                                 }
                                             }
 
-                                            // Update in-memory state
+                                            // Update in-memory state (delta broadcast handled by main loop)
                                             let mut agent_metrics = state.agent_metrics.write().await;
                                             agent_metrics.insert(
                                                 server_id.clone(),
@@ -252,50 +252,8 @@ async fn handle_agent_socket(socket: WebSocket, state: AppState, client_ip: Stri
                                                     last_updated: Utc::now(),
                                                 },
                                             );
-
-                                            // Broadcast to dashboard clients
-                                            let config = state.config.read().await;
-                                            let updates: Vec<ServerMetricsUpdate> = config
-                                                .servers
-                                                .iter()
-                                                .map(|server| {
-                                                    let metrics_data = agent_metrics.get(&server.id);
-                                                    let online = metrics_data
-                                                        .map(|m| {
-                                                            Utc::now()
-                                                                .signed_duration_since(m.last_updated)
-                                                                .num_seconds()
-                                                                < 30
-                                                        })
-                                                        .unwrap_or(false);
-
-                                                    let version = metrics_data
-                                                        .and_then(|m| m.metrics.version.clone())
-                                                        .unwrap_or_else(|| server.version.clone());
-
-                                                    ServerMetricsUpdate {
-                                                        server_id: server.id.clone(),
-                                                        server_name: server.name.clone(),
-                                                        location: server.location.clone(),
-                                                        provider: server.provider.clone(),
-                                                        tag: server.tag.clone(),
-                                                        version,
-                                                        ip: server.ip.clone(),
-                                                        online,
-                                                        metrics: metrics_data.map(|m| m.metrics.clone()),
-                                                    }
-                                                })
-                                                .collect();
-
-                                            let msg = DashboardMessage {
-                                                msg_type: "metrics".to_string(),
-                                                servers: updates,
-                                                site_settings: None,
-                                            };
-
-                                            if let Ok(json) = serde_json::to_string(&msg) {
-                                                let _ = state.metrics_tx.send(json);
-                                            }
+                                            // Note: Dashboard broadcast is now handled by the main loop
+                                            // which sends delta updates every 5 seconds
                                         }
                                     } else {
                                         let _ = sender
