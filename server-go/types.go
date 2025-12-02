@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"sync"
 	"time"
 
@@ -352,5 +353,6 @@ type AppState struct {
 	LastSentMu       sync.RWMutex
 	DashboardClients map[*websocket.Conn]bool
 	DashboardMu      sync.RWMutex
+	DB               *sql.DB
 }
 
