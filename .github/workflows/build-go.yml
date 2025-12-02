@@ -1,9 +1,14 @@
-name: Build and Release Go
+name: Build, Release and Deploy
 
 on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+    paths:
+      - 'web/**'
+      - 'docs/**'
   workflow_dispatch:
     inputs:
       version:
@@ -13,8 +18,21 @@ on:
 
 env:
   GO_VERSION: '1.22'
+  NODE_VERSION: '20'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "release-${{ github.ref }}"
+  cancel-in-progress: false
 
 jobs:
+  # ============================================================================
+  # Build Go Binaries
+  # ============================================================================
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -140,9 +158,11 @@ jobs:
           path: ${{ matrix.output }}
           retention-days: 30
 
+  # ============================================================================
+  # Build Web Frontend
+  # ============================================================================
   build-web:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     
     steps:
       - name: Checkout code
@@ -151,7 +171,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: web/package-lock.json
 
@@ -163,19 +183,40 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - name: Upload web artifact
+      - name: Create web archive
+        run: |
+          cd web/dist
+          tar -czvf ../../web-dist.tar.gz .
+          zip -r ../../web-dist.zip .
+
+      - name: Upload web artifact (directory)
         uses: actions/upload-artifact@v4
         with:
           name: web-dist
           path: web/dist
           retention-days: 30
 
+      - name: Upload web archive (tar.gz)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-tar
+          path: web-dist.tar.gz
+          retention-days: 30
+
+      - name: Upload web archive (zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-zip
+          path: web-dist.zip
+          retention-days: 30
+
+  # ============================================================================
+  # Create GitHub Release
+  # ============================================================================
   release:
     needs: [build, build-web]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
 
     steps:
       - name: Checkout code
@@ -190,60 +231,140 @@ jobs:
           echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Download all artifacts
+      - name: Download all binary artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: vstats-*
+          merge-multiple: true
 
-      - name: Download web artifact
+      - name: Download web archives
         uses: actions/download-artifact@v4
         with:
-          name: web-dist
-          path: artifacts/web-dist
+          pattern: web-dist-*
+          path: artifacts
+          merge-multiple: true
 
-      - name: Create web archive
+      - name: Prepare release files
         run: |
-          cd artifacts/web-dist
-          zip -r ../web-dist.zip .
-          cd ../..
-          echo "Web distribution archive created"
-
-      - name: Create checksums
-        run: |
-          cd artifacts
-          find . -type f -exec sha256sum {} \; > checksums.txt
+          mkdir -p release
+          # Copy all binaries
+          find artifacts -type f -name "vstats-*" -exec cp {} release/ \;
+          # Copy web archives
+          cp artifacts/web-dist.tar.gz release/ || true
+          cp artifacts/web-dist.zip release/ || true
+          # Make non-Windows binaries executable
+          find release -type f -name "vstats-*" ! -name "*.exe" -exec chmod +x {} \;
+          # Create checksums
+          cd release
+          sha256sum * > checksums.txt
+          ls -la
 
       - name: Create release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: Release ${{ steps.version.outputs.version }}
+          name: vStats ${{ steps.version.outputs.version }}
           body: |
             ## vStats ${{ steps.version.outputs.version }}
 
             ### Server (vstats-server)
-            - Linux (amd64, arm64)
-            - macOS (amd64, arm64)
-            - Windows (amd64)
-            - FreeBSD (amd64, arm64)
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Linux | amd64 | `vstats-server-linux-amd64` |
+            | Linux | arm64 | `vstats-server-linux-arm64` |
+            | macOS | amd64 (Intel) | `vstats-server-darwin-amd64` |
+            | macOS | arm64 (Apple Silicon) | `vstats-server-darwin-arm64` |
+            | Windows | amd64 | `vstats-server-windows-amd64.exe` |
+            | FreeBSD | amd64 | `vstats-server-freebsd-amd64` |
+            | FreeBSD | arm64 | `vstats-server-freebsd-arm64` |
 
             ### Agent (vstats-agent)
-            - Linux (amd64, arm64)
-            - macOS (amd64, arm64)
-            - Windows (amd64)
-            - FreeBSD (amd64, arm64)
+            | Platform | Architecture | Download |
+            |----------|--------------|----------|
+            | Linux | amd64 | `vstats-agent-linux-amd64` |
+            | Linux | arm64 | `vstats-agent-linux-arm64` |
+            | macOS | amd64 (Intel) | `vstats-agent-darwin-amd64` |
+            | macOS | arm64 (Apple Silicon) | `vstats-agent-darwin-arm64` |
+            | Windows | amd64 | `vstats-agent-windows-amd64.exe` |
+            | FreeBSD | amd64 | `vstats-agent-freebsd-amd64` |
+            | FreeBSD | arm64 | `vstats-agent-freebsd-arm64` |
 
             ### Web Frontend
-            - Pre-built web assets included in `web-dist.zip`
-            - Extract and serve the contents with your server
+            - `web-dist.tar.gz` - Pre-built web assets (tar.gz)
+            - `web-dist.zip` - Pre-built web assets (zip)
 
             ### Installation
-            Download the appropriate binary for your platform and architecture.
+
+            **Dashboard Server (Linux/macOS):**
+            ```bash
+            curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash
+            ```
+
+            **Agent (Linux/macOS):**
+            ```bash
+            curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- \
+              --server http://YOUR-DASHBOARD:3001 \
+              --token "YOUR-TOKEN" \
+              --name "$(hostname)"
+            ```
+
+            **Agent (Windows PowerShell - Run as Administrator):**
+            ```powershell
+            irm https://vstats.zsoft.cc/agent.ps1 -OutFile agent.ps1
+            .\agent.ps1 -Server "http://YOUR-DASHBOARD:3001" -Token "YOUR-TOKEN"
+            ```
 
             ### Checksums
-            See `checksums.txt` for SHA256 checksums of all binaries.
+            See `checksums.txt` for SHA256 checksums of all files.
           files: |
-            artifacts/*
+            release/*
           draft: false
           prerelease: false
 
+  # ============================================================================
+  # Deploy to GitHub Pages
+  # ============================================================================
+  deploy-pages:
+    needs: build-web
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download web artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-dist
+          path: web-dist
+
+      - name: Prepare pages content
+        run: |
+          # Merge web build with docs
+          mkdir -p pages
+          # Copy docs first (if exists)
+          if [ -d "docs" ]; then
+            cp -r docs/* pages/ || true
+          fi
+          # Copy web build (overwrites if conflicts)
+          cp -r web-dist/* pages/
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
