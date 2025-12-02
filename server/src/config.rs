@@ -139,9 +139,28 @@ impl AppConfig {
 /// If this is first run, returns the generated password
 pub fn load_config() -> (AppConfig, Option<String>) {
     let path = get_config_path();
+    eprintln!("📂 Loading config from: {}", path.display());
+    
     if path.exists() {
         let content = fs::read_to_string(&path).unwrap_or_default();
-        let mut config: AppConfig = serde_json::from_str(&content).unwrap_or_default();
+        let mut config: AppConfig = match serde_json::from_str(&content) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("⚠️  Failed to parse config: {}, using defaults", e);
+                AppConfig::default()
+            }
+        };
+        
+        // Verify password hash looks valid (bcrypt hashes start with $2)
+        if !config.admin_password_hash.starts_with("$2") {
+            eprintln!("⚠️  Invalid password hash format, regenerating...");
+            let password = generate_random_string(16);
+            config.admin_password_hash = bcrypt::hash(&password, bcrypt::DEFAULT_COST).unwrap();
+            save_config(&config);
+            eprintln!("🔑 New password: {}", password);
+        } else {
+            eprintln!("✅ Password hash loaded ({}... chars)", config.admin_password_hash.len());
+        }
         
         // Ensure jwt_secret exists (migrate old configs)
         if config.jwt_secret.is_empty() {

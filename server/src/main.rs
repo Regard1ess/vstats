@@ -139,8 +139,45 @@ async fn fallback_handler(_uri: Uri) -> Response {
 
 #[tokio::main]
 async fn main() {
-    // Check for --reset-password argument
+    // Check for command line arguments
     let args: Vec<String> = std::env::args().collect();
+    
+    // --check: Show diagnostic info
+    if args.iter().any(|a| a == "--check") {
+        let config_path = get_config_path();
+        let db_path = get_db_path();
+        println!("\n╔════════════════════════════════════════════════════════════════╗");
+        println!("║                    🔍 DIAGNOSTICS                              ║");
+        println!("╠════════════════════════════════════════════════════════════════╣");
+        println!("║  Executable: {:<48} ║", std::env::current_exe().map(|p| p.display().to_string()).unwrap_or("unknown".into()));
+        println!("║  Config: {:<52} ║", config_path.display());
+        println!("║  Config exists: {:<45} ║", config_path.exists());
+        println!("║  Database: {:<50} ║", db_path.display());
+        println!("║  Database exists: {:<43} ║", db_path.exists());
+        
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let has_hash = config.get("admin_password_hash")
+                        .and_then(|v| v.as_str())
+                        .map(|h| h.starts_with("$2"))
+                        .unwrap_or(false);
+                    println!("║  Password hash valid: {:<39} ║", has_hash);
+                    let servers = config.get("servers")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0);
+                    println!("║  Servers configured: {:<40} ║", servers);
+                } else {
+                    println!("║  ⚠️  Config file is corrupted!                                 ║");
+                }
+            }
+        }
+        println!("╚════════════════════════════════════════════════════════════════╝\n");
+        return;
+    }
+    
+    // --reset-password: Reset admin password
     if args.iter().any(|a| a == "--reset-password") {
         let config_path = get_config_path();
         let new_password = reset_admin_password();

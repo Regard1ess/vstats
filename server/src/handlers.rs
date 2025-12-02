@@ -28,8 +28,19 @@ pub async fn login(
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, StatusCode> {
     let config = state.config.read().await;
+    
+    // Debug: log password hash prefix for verification
+    let hash_prefix = if config.admin_password_hash.len() > 20 {
+        &config.admin_password_hash[..20]
+    } else {
+        &config.admin_password_hash
+    };
+    tracing::debug!("Login attempt - hash prefix: {}...", hash_prefix);
+    
+    let verify_result = bcrypt::verify(&req.password, &config.admin_password_hash);
+    tracing::debug!("bcrypt verify result: {:?}", verify_result);
 
-    if bcrypt::verify(&req.password, &config.admin_password_hash).unwrap_or(false) {
+    if verify_result.unwrap_or(false) {
         // Token valid for 7 days
         let expires_at = Utc::now() + Duration::days(7);
         let claims = Claims {
