@@ -39,7 +39,7 @@ type MetricsCollector struct {
 func NewMetricsCollector() *MetricsCollector {
 	mc := &MetricsCollector{
 		lastNetworkTime: time.Now(),
-		pingResults:     &PingMetrics{Targets: []PingTarget{}},
+		pingResults:     nil, // Will be set when ping targets are configured
 	}
 
 	// Get initial network totals
@@ -165,6 +165,12 @@ func (mc *MetricsCollector) Collect() SystemMetrics {
 	ping := mc.pingResults
 	mc.pingResultsMu.RUnlock()
 
+	// Only include ping if there are targets configured
+	var pingPtr *PingMetrics
+	if ping != nil && len(ping.Targets) > 0 {
+		pingPtr = ping
+	}
+
 	metrics := SystemMetrics{
 		Timestamp: time.Now().UTC(),
 		Hostname:  hostInfo.Hostname,
@@ -200,7 +206,7 @@ func (mc *MetricsCollector) Collect() SystemMetrics {
 		},
 		Uptime:      uptime,
 		LoadAverage: la,
-		Ping:        ping,
+		Ping:        pingPtr,
 		Version:     AgentVersion,
 	}
 
@@ -229,41 +235,15 @@ func (mc *MetricsCollector) pingLoop() {
 }
 
 func collectPingMetrics(gatewayIP string, customTargets []PingTargetConfig) *PingMetrics {
-	var targets []PingTarget
-
-	// Default targets
-	defaultTargets := []struct {
-		name string
-		host string
-	}{
-		{"Google DNS", "8.8.8.8"},
-		{"Cloudflare", "1.1.1.1"},
-		{"Local Gateway", gatewayIP},
+	// If no custom targets configured, return nil (no ping)
+	if len(customTargets) == 0 {
+		return nil
 	}
 
+	var targets []PingTarget
 	pingedHosts := make(map[string]bool)
 
-	// Ping default targets
-	for _, dt := range defaultTargets {
-		if dt.host == "" {
-			continue
-		}
-		if pingedHosts[dt.host] {
-			continue
-		}
-
-		latency, packetLoss, status := pingHost(dt.host)
-		targets = append(targets, PingTarget{
-			Name:       dt.name,
-			Host:       dt.host,
-			LatencyMs:  latency,
-			PacketLoss: packetLoss,
-			Status:     status,
-		})
-		pingedHosts[dt.host] = true
-	}
-
-	// Ping custom targets
+	// Only ping custom targets from dashboard configuration
 	for _, ct := range customTargets {
 		if ct.Host == "" || pingedHosts[ct.Host] {
 			continue
@@ -278,6 +258,11 @@ func collectPingMetrics(gatewayIP string, customTargets []PingTargetConfig) *Pin
 			Status:     status,
 		})
 		pingedHosts[ct.Host] = true
+	}
+
+	// Return nil if no valid targets after filtering
+	if len(targets) == 0 {
+		return nil
 	}
 
 	return &PingMetrics{Targets: targets}
