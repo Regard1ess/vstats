@@ -360,7 +360,7 @@ export default function Dashboard() {
             )}
           </button>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate('/settings')}
             className="p-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-gray-400 hover:text-white transition-all"
             title="Settings"
           >

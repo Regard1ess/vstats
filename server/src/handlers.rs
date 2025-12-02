@@ -27,17 +27,36 @@ pub async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
 ) -> Result<Json<LoginResponse>, StatusCode> {
-    let config = state.config.read().await;
-    
-    // Debug: log password hash prefix for verification
-    let hash_prefix = if config.admin_password_hash.len() > 20 {
-        &config.admin_password_hash[..20]
-    } else {
-        &config.admin_password_hash
+    // Read latest password hash from config file (supports hot reload after reset)
+    let password_hash = {
+        let config_path = crate::config::get_config_path();
+        if config_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&config_path) {
+                if let Ok(file_config) = serde_json::from_str::<serde_json::Value>(&content) {
+                    file_config.get("admin_password_hash")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
     };
-    tracing::debug!("Login attempt - hash prefix: {}...", hash_prefix);
     
-    let verify_result = bcrypt::verify(&req.password, &config.admin_password_hash);
+    // Fall back to in-memory config if file read fails
+    let password_hash = match password_hash {
+        Some(h) if h.starts_with("$2") => h,
+        _ => {
+            let config = state.config.read().await;
+            config.admin_password_hash.clone()
+        }
+    };
+    
+    let verify_result = bcrypt::verify(&req.password, &password_hash);
     tracing::debug!("bcrypt verify result: {:?}", verify_result);
 
     if verify_result.unwrap_or(false) {

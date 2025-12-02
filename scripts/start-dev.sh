@@ -44,7 +44,7 @@ export RUST_LOG=info
 export VSTATS_PORT=3001
 export VSTATS_WEB_DIR="$WEB_DIR/dist"
 
-SERVER_BINARY="$SERVER_DIR/target/release/xprob-server"
+SERVER_BINARY="$SERVER_DIR/target/release/vstats-server"
 
 echo -e "${BLUE}════════════════════════════════════════${NC}"
 echo -e "${GREEN}Server: http://localhost:3001${NC}"
