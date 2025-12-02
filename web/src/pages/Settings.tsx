@@ -118,7 +118,6 @@ export default function Settings() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [checkingVersion, setCheckingVersion] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
-  const [upgradeResult, setUpgradeResult] = useState<{ success: boolean; message: string } | null>(null);
   
   // Edit server
   const [editingServer, setEditingServer] = useState<string | null>(null);
@@ -460,7 +459,6 @@ Invoke-WebRequest -Uri "${baseUrl}/agent.ps1" -OutFile "agent.ps1"
     }
 
     setUpgrading(true);
-    setUpgradeResult(null);
     
     try {
       const res = await fetch('/api/server/upgrade', {
@@ -473,10 +471,6 @@ Invoke-WebRequest -Uri "${baseUrl}/agent.ps1" -OutFile "agent.ps1"
       
       if (res.ok) {
         const data = await res.json();
-        setUpgradeResult({
-          success: data.success,
-          message: data.message
-        });
         
         if (data.success) {
           showToast('Upgrade command executed successfully! The server will restart.', 'success');
@@ -489,18 +483,10 @@ Invoke-WebRequest -Uri "${baseUrl}/agent.ps1" -OutFile "agent.ps1"
           showToast(`Upgrade failed: ${data.message}`, 'error');
         }
       } else {
-        setUpgradeResult({
-          success: false,
-          message: 'Failed to execute upgrade command'
-        });
         showToast('Failed to execute upgrade command', 'error');
       }
     } catch (e) {
       console.error('Failed to upgrade server', e);
-      setUpgradeResult({
-        success: false,
-        message: 'Network error: Failed to execute upgrade command'
-      });
       showToast('Failed to execute upgrade command', 'error');
     } finally {
       setUpgrading(false);
