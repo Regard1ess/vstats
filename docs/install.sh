@@ -173,12 +173,31 @@ download_binary() {
 download_web() {
     info "Downloading web assets..."
     
-    WEB_URL="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.tar.gz"
+    # Try tar.gz first, then zip
+    WEB_URL_TAR="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.tar.gz"
+    WEB_URL_ZIP="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.zip"
     
-    if curl -fsSL "$WEB_URL" -o "/tmp/vstats-web.tar.gz" 2>/dev/null; then
+    if curl -L --fail --silent "$WEB_URL_TAR" -o "/tmp/vstats-web.tar.gz" 2>/dev/null; then
         tar -xzf "/tmp/vstats-web.tar.gz" -C "$INSTALL_DIR/web"
         rm -f "/tmp/vstats-web.tar.gz"
-        success "Downloaded web assets"
+        success "Downloaded web assets (tar.gz)"
+    elif curl -L --fail --silent "$WEB_URL_ZIP" -o "/tmp/vstats-web.zip" 2>/dev/null; then
+        if command -v unzip &> /dev/null; then
+            unzip -q "/tmp/vstats-web.zip" -d "$INSTALL_DIR/web"
+            rm -f "/tmp/vstats-web.zip"
+            success "Downloaded web assets (zip)"
+        else
+            warn "unzip not found, trying to install..."
+            if command -v apt-get &> /dev/null; then
+                apt-get update && apt-get install -y unzip
+                unzip -q "/tmp/vstats-web.zip" -d "$INSTALL_DIR/web"
+                rm -f "/tmp/vstats-web.zip"
+                success "Downloaded web assets (zip)"
+            else
+                warn "Could not extract web assets. Dashboard may serve embedded assets."
+                rm -f "/tmp/vstats-web.zip"
+            fi
+        fi
     else
         warn "Could not download web assets. Dashboard may serve embedded assets."
     fi
