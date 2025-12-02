@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { showToast } from '../components/Toast';
 import type { SiteSettings, SocialLink } from '../types';
 
 // Universal copy to clipboard function that works in all contexts
@@ -192,16 +193,16 @@ export default function Settings() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          alert('Update command sent successfully! The agent will restart.');
+          showToast('Update command sent! The agent will restart.', 'success');
         } else {
-          alert(`Update failed: ${data.message}`);
+          showToast(`Update failed: ${data.message}`, 'error');
         }
       } else {
-        alert('Failed to send update command');
+        showToast('Failed to send update command', 'error');
       }
     } catch (e) {
       console.error('Failed to update agent', e);
-      alert('Failed to send update command');
+      showToast('Failed to send update command', 'error');
     }
     
     setUpdatingAgents(prev => ({ ...prev, [serverId]: false }));

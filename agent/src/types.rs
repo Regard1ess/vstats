@@ -115,6 +115,7 @@ pub struct AuthMessage {
     pub msg_type: String,
     pub server_id: String,
     pub token: String,
+    pub version: String,
 }
 
 #[derive(Debug, Serialize)]

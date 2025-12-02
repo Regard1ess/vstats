@@ -19,7 +19,7 @@ pub struct AgentConfig {
 }
 
 fn default_interval() -> u64 {
-    1
+    5
 }
 
 impl AgentConfig {

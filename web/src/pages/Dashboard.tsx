@@ -141,7 +141,7 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
 
   return (
     <div 
-      className="nezha-card p-4 md:p-5 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6 hover:scale-[1.005] hover:border-white/20 transition-all cursor-pointer group relative overflow-hidden"
+      className="nezha-card server-card-stable p-4 md:p-5 flex flex-col lg:flex-row items-start lg:items-center gap-4 lg:gap-6 hover:scale-[1.005] hover:border-white/20 transition-all cursor-pointer group relative overflow-hidden"
       onClick={onClick}
     >
       {/* Provider Logo Background */}
@@ -150,7 +150,7 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
           <LogoImage 
             src={providerLogo} 
             alt="" 
-            className="w-full h-full object-contain transform rotate-[-15deg]" 
+            className="w-full h-full object-contain transform rotate-[15deg]" 
           />
         </div>
       )}
@@ -246,14 +246,14 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
             <div key={label} className="space-y-1">
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-500">{label}</span>
-                <span className={`font-mono font-bold ${value > thresholds[1] ? 'text-red-400' : value > thresholds[0] ? 'text-yellow-400' : 'text-emerald-400'}`}>
+                <span className={`font-mono font-bold metric-value ${value > thresholds[1] ? 'text-red-400' : value > thresholds[0] ? 'text-yellow-400' : 'text-emerald-400'}`}>
                   {value.toFixed(0)}%
                 </span>
               </div>
               <div className="h-1 w-full bg-gray-700/50 rounded-full overflow-hidden">
                 <div 
-                  className={`h-full rounded-full transition-all duration-500 ${value > thresholds[1] ? 'bg-red-500' : value > thresholds[0] ? 'bg-yellow-500' : 'bg-emerald-500'}`} 
-                  style={{ width: `${value}%` }} 
+                  className={`h-full rounded-full transition-[width] duration-500 ease-out ${value > thresholds[1] ? 'bg-red-500' : value > thresholds[0] ? 'bg-yellow-500' : 'bg-emerald-500'}`} 
+                  style={{ width: `${Math.min(100, Math.max(0, value))}%` }} 
                 />
               </div>
             </div>
@@ -265,11 +265,11 @@ function ServerCard({ server, onClick }: { server: ServerState; onClick: () => v
       <div className="w-full lg:w-40 flex flex-row lg:flex-col justify-between lg:justify-center items-end lg:items-end gap-1 shrink-0 border-t lg:border-t-0 lg:border-l border-white/5 pt-3 lg:pt-0 lg:pl-4">
         <div className="text-right">
           <div className="text-[10px] text-gray-600 uppercase tracking-wider">Up</div>
-          <div className="text-xs font-mono text-emerald-400 font-semibold">↑ {formatSpeed(speed.tx_sec)}</div>
+          <div className="text-xs font-mono text-emerald-400 font-semibold speed-value">↑ {formatSpeed(speed.tx_sec)}</div>
         </div>
         <div className="text-right">
           <div className="text-[10px] text-gray-600 uppercase tracking-wider">Down</div>
-          <div className="text-xs font-mono text-blue-400 font-semibold">↓ {formatSpeed(speed.rx_sec)}</div>
+          <div className="text-xs font-mono text-blue-400 font-semibold speed-value">↓ {formatSpeed(speed.rx_sec)}</div>
         </div>
       </div>
 
@@ -319,7 +319,7 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
 
   return (
     <div 
-      className="nezha-card p-4 hover:scale-[1.02] transition-all cursor-pointer group flex flex-col relative overflow-hidden"
+      className="nezha-card server-grid-card-stable p-4 hover:scale-[1.02] transition-all cursor-pointer group flex flex-col relative overflow-hidden"
       onClick={onClick}
     >
       {/* Provider Logo Background */}
@@ -328,7 +328,7 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
           <LogoImage 
             src={providerLogo} 
             alt="" 
-            className="w-full h-full object-contain transform rotate-[-15deg]" 
+            className="w-full h-full object-contain transform rotate-[15deg]" 
           />
         </div>
       )}
@@ -361,11 +361,12 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
             <circle 
               cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round"
               className={cpuStroke}
-              strokeDasharray={`${metrics.cpu.usage * 0.94} 94`}
+              style={{ transition: 'stroke-dasharray 0.5s ease-out' }}
+              strokeDasharray={`${Math.min(100, Math.max(0, metrics.cpu.usage)) * 0.94} 94`}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-xs font-bold font-mono ${cpuColor}`}>{metrics.cpu.usage.toFixed(0)}%</span>
+            <span className={`text-xs font-bold font-mono metric-value ${cpuColor}`}>{metrics.cpu.usage.toFixed(0)}%</span>
             <span className="text-[8px]" style={{ color: 'var(--text-muted)' }}>CPU</span>
           </div>
         </div>
@@ -377,11 +378,12 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
             <circle 
               cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round"
               className={memStroke}
-              strokeDasharray={`${metrics.memory.usage_percent * 0.94} 94`}
+              style={{ transition: 'stroke-dasharray 0.5s ease-out' }}
+              strokeDasharray={`${Math.min(100, Math.max(0, metrics.memory.usage_percent)) * 0.94} 94`}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-xs font-bold font-mono ${memColor}`}>{metrics.memory.usage_percent.toFixed(0)}%</span>
+            <span className={`text-xs font-bold font-mono metric-value ${memColor}`}>{metrics.memory.usage_percent.toFixed(0)}%</span>
             <span className="text-[8px]" style={{ color: 'var(--text-muted)' }}>RAM</span>
           </div>
         </div>
@@ -393,11 +395,12 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
             <circle 
               cx="18" cy="18" r="15" fill="none" strokeWidth="3" strokeLinecap="round"
               className={diskStroke}
-              strokeDasharray={`${diskUsage * 0.94} 94`}
+              style={{ transition: 'stroke-dasharray 0.5s ease-out' }}
+              strokeDasharray={`${Math.min(100, Math.max(0, diskUsage)) * 0.94} 94`}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className={`text-xs font-bold font-mono ${diskColor}`}>{diskUsage.toFixed(0)}%</span>
+            <span className={`text-xs font-bold font-mono metric-value ${diskColor}`}>{diskUsage.toFixed(0)}%</span>
             <span className="text-[8px]" style={{ color: 'var(--text-muted)' }}>Disk</span>
           </div>
         </div>
@@ -428,8 +431,8 @@ function ServerGridCard({ server, onClick }: { server: ServerState; onClick: () 
           <span style={{ color: 'var(--text-muted)' }}>{formatUptime(metrics.uptime)}</span>
         </div>
         <div className="flex gap-2 font-mono">
-          <span className="text-emerald-600">↑{formatSpeed(speed.tx_sec)}</span>
-          <span className="text-blue-600">↓{formatSpeed(speed.rx_sec)}</span>
+          <span className="text-emerald-600 speed-value text-[10px]">↑{formatSpeed(speed.tx_sec)}</span>
+          <span className="text-blue-600 speed-value text-[10px]">↓{formatSpeed(speed.rx_sec)}</span>
         </div>
       </div>
     </div>

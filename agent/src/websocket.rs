@@ -173,6 +173,7 @@ impl WebSocketClient {
             msg_type: "auth".to_string(),
             server_id: self.config.server_id.clone(),
             token: self.config.agent_token.clone(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
         };
         
         let auth_json = serde_json::to_string(&auth_msg)

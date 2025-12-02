@@ -444,6 +444,39 @@ button:active {
   opacity: 0;
 }
 
+/* Prevent layout jumps during data updates */
+.server-card-stable {
+  contain: layout style;
+  min-height: 120px;
+}
+
+.server-grid-card-stable {
+  contain: layout style;
+  aspect-ratio: 1;
+  min-height: 180px;
+}
+
+/* Smooth metric value transitions */
+.metric-value {
+  transition: all 0.3s ease-out;
+  font-variant-numeric: tabular-nums;
+  min-width: 3ch;
+  text-align: right;
+}
+
+/* Stable progress bar container */
+.progress-container {
+  contain: layout;
+  height: 4px;
+}
+
+/* Prevent network speed from jumping */
+.speed-value {
+  font-variant-numeric: tabular-nums;
+  min-width: 10ch;
+  text-align: right;
+}
+
 /* Smooth transition for data updates */
 .data-transition {
   transition: all 0.3s ease-out;

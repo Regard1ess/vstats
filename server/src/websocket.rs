@@ -31,32 +31,49 @@ async fn handle_dashboard_socket(socket: WebSocket, state: AppState) {
         let config = state.config.read().await;
         let agent_metrics = state.agent_metrics.read().await;
 
-        let updates: Vec<ServerMetricsUpdate> = config
-            .servers
-            .iter()
-            .map(|server| {
-                let metrics_data = agent_metrics.get(&server.id);
-                let online = metrics_data
-                    .map(|m| Utc::now().signed_duration_since(m.last_updated).num_seconds() < 30)
-                    .unwrap_or(false);
+        let mut updates: Vec<ServerMetricsUpdate> = Vec::new();
+        
+        // Add local node first
+        let local_node = &config.local_node;
+        updates.push(ServerMetricsUpdate {
+            server_id: "local".to_string(),
+            server_name: if local_node.name.is_empty() { 
+                "Dashboard Server".to_string()
+            } else { 
+                local_node.name.clone() 
+            },
+            location: local_node.location.clone(),
+            provider: if local_node.provider.is_empty() { "Local".to_string() } else { local_node.provider.clone() },
+            tag: local_node.tag.clone(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            ip: String::new(),
+            online: true,
+            metrics: None, // Will be populated by the background task
+        });
+        
+        // Add remote servers
+        for server in &config.servers {
+            let metrics_data = agent_metrics.get(&server.id);
+            let online = metrics_data
+                .map(|m| Utc::now().signed_duration_since(m.last_updated).num_seconds() < 30)
+                .unwrap_or(false);
 
-                let version = metrics_data
-                    .and_then(|m| m.metrics.version.clone())
-                    .unwrap_or_else(|| server.version.clone());
+            let version = metrics_data
+                .and_then(|m| m.metrics.version.clone())
+                .unwrap_or_else(|| server.version.clone());
 
-                ServerMetricsUpdate {
-                    server_id: server.id.clone(),
-                    server_name: server.name.clone(),
-                    location: server.location.clone(),
-                    provider: server.provider.clone(),
-                    tag: server.tag.clone(),
-                    version,
-                    ip: server.ip.clone(),
-                    online,
-                    metrics: metrics_data.map(|m| m.metrics.clone()),
-                }
-            })
-            .collect();
+            updates.push(ServerMetricsUpdate {
+                server_id: server.id.clone(),
+                server_name: server.name.clone(),
+                location: server.location.clone(),
+                provider: server.provider.clone(),
+                tag: server.tag.clone(),
+                version,
+                ip: server.ip.clone(),
+                online,
+                metrics: metrics_data.map(|m| m.metrics.clone()),
+            });
+        }
 
         let msg = DashboardMessage {
             msg_type: "metrics".to_string(),
@@ -123,14 +140,23 @@ async fn handle_agent_socket(socket: WebSocket, state: AppState, client_ip: Stri
                             match agent_msg.msg_type.as_str() {
                                 "auth" => {
                                     if let (Some(server_id), Some(token)) =
-                                        (agent_msg.server_id, agent_msg.token)
+                                        (agent_msg.server_id.clone(), agent_msg.token.clone())
                                     {
-                                        let config = state.config.read().await;
+                                        let mut config = state.config.write().await;
                                         if let Some(server) =
-                                            config.servers.iter().find(|s| s.id == server_id)
+                                            config.servers.iter_mut().find(|s| s.id == server_id)
                                         {
                                             if server.token == token {
                                                 authenticated_server_id = Some(server_id.clone());
+                                                
+                                                // Update version from auth message if provided
+                                                if let Some(ref version) = agent_msg.version {
+                                                    if server.version != *version {
+                                                        server.version = version.clone();
+                                                        crate::config::save_config(&config);
+                                                        tracing::info!("Agent {} version updated to: {}", server_id, version);
+                                                    }
+                                                }
                                                 
                                                 // Register this agent's command channel
                                                 {
@@ -316,41 +342,58 @@ async fn handle_agent_socket(socket: WebSocket, state: AppState, client_ip: Stri
         let config = state.config.read().await;
         let agent_metrics = state.agent_metrics.read().await;
 
-        let updates: Vec<ServerMetricsUpdate> = config
-            .servers
-            .iter()
-            .map(|server| {
-                let metrics_data = agent_metrics.get(&server.id);
-                let online = if server.id == server_id {
-                    false
-                } else {
-                    metrics_data
-                        .map(|m| {
-                            Utc::now()
-                                .signed_duration_since(m.last_updated)
-                                .num_seconds()
-                                < 30
-                        })
-                        .unwrap_or(false)
-                };
+        let mut updates: Vec<ServerMetricsUpdate> = Vec::new();
+        
+        // Add local node first
+        let local_node = &config.local_node;
+        updates.push(ServerMetricsUpdate {
+            server_id: "local".to_string(),
+            server_name: if local_node.name.is_empty() { 
+                "Dashboard Server".to_string()
+            } else { 
+                local_node.name.clone() 
+            },
+            location: local_node.location.clone(),
+            provider: if local_node.provider.is_empty() { "Local".to_string() } else { local_node.provider.clone() },
+            tag: local_node.tag.clone(),
+            version: env!("CARGO_PKG_VERSION").to_string(),
+            ip: String::new(),
+            online: true,
+            metrics: None,
+        });
+        
+        // Add remote servers
+        for server in &config.servers {
+            let metrics_data = agent_metrics.get(&server.id);
+            let online = if server.id == server_id {
+                false
+            } else {
+                metrics_data
+                    .map(|m| {
+                        Utc::now()
+                            .signed_duration_since(m.last_updated)
+                            .num_seconds()
+                            < 30
+                    })
+                    .unwrap_or(false)
+            };
 
-                let version = metrics_data
-                    .and_then(|m| m.metrics.version.clone())
-                    .unwrap_or_else(|| server.version.clone());
+            let version = metrics_data
+                .and_then(|m| m.metrics.version.clone())
+                .unwrap_or_else(|| server.version.clone());
 
-                ServerMetricsUpdate {
-                    server_id: server.id.clone(),
-                    server_name: server.name.clone(),
-                    location: server.location.clone(),
-                    provider: server.provider.clone(),
-                    tag: server.tag.clone(),
-                    version,
-                    ip: server.ip.clone(),
-                    online,
-                    metrics: metrics_data.map(|m| m.metrics.clone()),
-                }
-            })
-            .collect();
+            updates.push(ServerMetricsUpdate {
+                server_id: server.id.clone(),
+                server_name: server.name.clone(),
+                location: server.location.clone(),
+                provider: server.provider.clone(),
+                tag: server.tag.clone(),
+                version,
+                ip: server.ip.clone(),
+                online,
+                metrics: metrics_data.map(|m| m.metrics.clone()),
+            });
+        }
 
         let msg = DashboardMessage {
             msg_type: "metrics".to_string(),

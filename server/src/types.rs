@@ -268,6 +268,8 @@ pub struct AgentMessage {
     pub msg_type: String,
     pub server_id: Option<String>,
     pub token: Option<String>,
+    #[serde(default)]
+    pub version: Option<String>,
     pub metrics: Option<SystemMetrics>,
 }
 
