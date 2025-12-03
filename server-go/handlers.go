@@ -178,13 +178,17 @@ func (s *AppState) AddServer(c *gin.Context) {
 	}
 
 	server := RemoteServer{
-		ID:       uuid.New().String(),
-		Name:     req.Name,
-		URL:      req.URL,
-		Location: req.Location,
-		Provider: req.Provider,
-		Tag:      req.Tag,
-		Token:    uuid.New().String(),
+		ID:           uuid.New().String(),
+		Name:         req.Name,
+		URL:          req.URL,
+		Location:     req.Location,
+		Provider:     req.Provider,
+		Tag:          req.Tag,
+		Token:        uuid.New().String(),
+		PriceAmount:  req.PriceAmount,
+		PricePeriod:  req.PricePeriod,
+		PurchaseDate: req.PurchaseDate,
+		TipBadge:     req.TipBadge,
 	}
 
 	s.ConfigMu.Lock()
@@ -242,6 +246,18 @@ func (s *AppState) UpdateServer(c *gin.Context) {
 			}
 			if req.Tag != nil {
 				s.Config.Servers[i].Tag = *req.Tag
+			}
+			if req.PriceAmount != nil {
+				s.Config.Servers[i].PriceAmount = *req.PriceAmount
+			}
+			if req.PricePeriod != nil {
+				s.Config.Servers[i].PricePeriod = *req.PricePeriod
+			}
+			if req.PurchaseDate != nil {
+				s.Config.Servers[i].PurchaseDate = *req.PurchaseDate
+			}
+			if req.TipBadge != nil {
+				s.Config.Servers[i].TipBadge = *req.TipBadge
 			}
 			updated = &s.Config.Servers[i]
 			break
@@ -366,15 +382,19 @@ func (s *AppState) GetAllMetrics(c *gin.Context) {
 		}
 
 		updates = append(updates, ServerMetricsUpdate{
-			ServerID:   server.ID,
-			ServerName: server.Name,
-			Location:   server.Location,
-			Provider:   server.Provider,
-			Tag:        server.Tag,
-			Version:    version,
-			IP:         server.IP,
-			Online:     online,
-			Metrics:    metrics,
+			ServerID:     server.ID,
+			ServerName:   server.Name,
+			Location:     server.Location,
+			Provider:     server.Provider,
+			Tag:          server.Tag,
+			Version:      version,
+			IP:           server.IP,
+			Online:       online,
+			Metrics:      metrics,
+			PriceAmount:  server.PriceAmount,
+			PricePeriod:  server.PricePeriod,
+			PurchaseDate: server.PurchaseDate,
+			TipBadge:     server.TipBadge,
 		})
 	}
 

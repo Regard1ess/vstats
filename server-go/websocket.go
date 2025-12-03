@@ -81,15 +81,19 @@ func (s *AppState) sendInitialState(conn *websocket.Conn) {
 	}
 
 	updates = append(updates, ServerMetricsUpdate{
-		ServerID:   "local",
-		ServerName: localName,
-		Location:   localNode.Location,
-		Provider:   provider,
-		Tag:        localNode.Tag,
-		Version:    ServerVersion,
-		IP:         "",
-		Online:     true,
-		Metrics:    &localMetrics,
+		ServerID:     "local",
+		ServerName:   localName,
+		Location:     localNode.Location,
+		Provider:     provider,
+		Tag:          localNode.Tag,
+		Version:      ServerVersion,
+		IP:           "",
+		Online:       true,
+		Metrics:      &localMetrics,
+		PriceAmount:  localNode.PriceAmount,
+		PricePeriod:  localNode.PricePeriod,
+		PurchaseDate: localNode.PurchaseDate,
+		TipBadge:     localNode.TipBadge,
 	})
 
 	// Add remote servers
@@ -111,15 +115,19 @@ func (s *AppState) sendInitialState(conn *websocket.Conn) {
 		}
 
 		updates = append(updates, ServerMetricsUpdate{
-			ServerID:   server.ID,
-			ServerName: server.Name,
-			Location:   server.Location,
-			Provider:   server.Provider,
-			Tag:        server.Tag,
-			Version:    version,
-			IP:         server.IP,
-			Online:     online,
-			Metrics:    metrics,
+			ServerID:     server.ID,
+			ServerName:   server.Name,
+			Location:     server.Location,
+			Provider:     server.Provider,
+			Tag:          server.Tag,
+			Version:      version,
+			IP:           server.IP,
+			Online:       online,
+			Metrics:      metrics,
+			PriceAmount:  server.PriceAmount,
+			PricePeriod:  server.PricePeriod,
+			PurchaseDate: server.PurchaseDate,
+			TipBadge:     server.TipBadge,
 		})
 	}
 

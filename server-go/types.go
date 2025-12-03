@@ -135,18 +135,26 @@ type ChangePasswordRequest struct {
 // ============================================================================
 
 type AddServerRequest struct {
-	Name     string `json:"name"`
-	URL      string `json:"url"`
-	Location string `json:"location"`
-	Provider string `json:"provider"`
-	Tag      string `json:"tag"`
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	Location     string `json:"location"`
+	Provider     string `json:"provider"`
+	Tag          string `json:"tag"`
+	PriceAmount  string `json:"price_amount,omitempty"`
+	PricePeriod  string `json:"price_period,omitempty"`
+	PurchaseDate string `json:"purchase_date,omitempty"`
+	TipBadge     string `json:"tip_badge,omitempty"`
 }
 
 type UpdateServerRequest struct {
-	Name     *string `json:"name,omitempty"`
-	Location *string `json:"location,omitempty"`
-	Provider *string `json:"provider,omitempty"`
-	Tag      *string `json:"tag,omitempty"`
+	Name         *string `json:"name,omitempty"`
+	Location     *string `json:"location,omitempty"`
+	Provider     *string `json:"provider,omitempty"`
+	Tag          *string `json:"tag,omitempty"`
+	PriceAmount  *string `json:"price_amount,omitempty"`
+	PricePeriod  *string `json:"price_period,omitempty"`
+	PurchaseDate *string `json:"purchase_date,omitempty"`
+	TipBadge     *string `json:"tip_badge,omitempty"`
 }
 
 type AgentRegisterRequest struct {
@@ -210,15 +218,19 @@ type DashboardMessage struct {
 }
 
 type ServerMetricsUpdate struct {
-	ServerID   string         `json:"server_id"`
-	ServerName string         `json:"server_name"`
-	Location   string         `json:"location"`
-	Provider   string         `json:"provider"`
-	Tag        string         `json:"tag"`
-	Version    string         `json:"version"`
-	IP         string         `json:"ip"`
-	Online     bool           `json:"online"`
-	Metrics    *SystemMetrics `json:"metrics"`
+	ServerID     string         `json:"server_id"`
+	ServerName   string         `json:"server_name"`
+	Location     string         `json:"location"`
+	Provider     string         `json:"provider"`
+	Tag          string         `json:"tag"`
+	Version      string         `json:"version"`
+	IP           string         `json:"ip"`
+	Online       bool           `json:"online"`
+	Metrics      *SystemMetrics `json:"metrics"`
+	PriceAmount  string         `json:"price_amount,omitempty"`
+	PricePeriod  string         `json:"price_period,omitempty"`
+	PurchaseDate string         `json:"purchase_date,omitempty"`
+	TipBadge     string         `json:"tip_badge,omitempty"`
 }
 
 type DeltaMessage struct {

@@ -23,10 +23,14 @@ var (
 )
 
 type LocalNodeConfig struct {
-	Name     string `json:"name"`
-	Location string `json:"location"`
-	Provider string `json:"provider"`
-	Tag      string `json:"tag"`
+	Name         string `json:"name"`
+	Location     string `json:"location"`
+	Provider     string `json:"provider"`
+	Tag          string `json:"tag"`
+	PriceAmount  string `json:"price_amount,omitempty"`
+	PricePeriod  string `json:"price_period,omitempty"`
+	PurchaseDate string `json:"purchase_date,omitempty"`
+	TipBadge     string `json:"tip_badge,omitempty"`
 }
 
 type SiteSettings struct {
@@ -51,15 +55,19 @@ type ProbeSettings struct {
 }
 
 type RemoteServer struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	URL      string `json:"url"`
-	Location string `json:"location"`
-	Provider string `json:"provider"`
-	Tag      string `json:"tag"`
-	Token    string `json:"token"`
-	Version  string `json:"version"`
-	IP       string `json:"ip"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	Location     string `json:"location"`
+	Provider     string `json:"provider"`
+	Tag          string `json:"tag"`
+	Token        string `json:"token"`
+	Version      string `json:"version"`
+	IP           string `json:"ip"`
+	PriceAmount  string `json:"price_amount,omitempty"`
+	PricePeriod  string `json:"price_period,omitempty"`
+	PurchaseDate string `json:"purchase_date,omitempty"`
+	TipBadge     string `json:"tip_badge,omitempty"`
 }
 
 type AppConfig struct {

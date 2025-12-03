@@ -75,6 +75,10 @@ interface ServerMetricsUpdate {
   version?: string;
   online: boolean;
   metrics: SystemMetrics | null;
+  price_amount?: string;
+  price_period?: string;
+  purchase_date?: string;
+  tip_badge?: string;
 }
 
 const defaultSiteSettings: SiteSettings = {
@@ -261,6 +265,12 @@ export function useServerManager() {
                     provider: serverUpdate.provider,
                     tag: serverUpdate.tag,
                     version: serverUpdate.version || serverUpdate.metrics?.version,
+                    price: serverUpdate.price_amount ? {
+                      amount: serverUpdate.price_amount,
+                      period: (serverUpdate.price_period as 'month' | 'year') || 'month',
+                    } : undefined,
+                    purchase_date: serverUpdate.purchase_date,
+                    tip_badge: serverUpdate.tip_badge,
                   },
                   metrics: metricsToUse,
                   speed: newSpeed,
