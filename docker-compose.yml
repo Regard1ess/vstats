@@ -21,11 +21,11 @@ services:
       # Optional: mount custom config file
       # - ./vstats-config.json:/app/data/vstats-config.json:ro
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      test: ["CMD", "/app/vstats-server", "version"]
       interval: 30s
       timeout: 3s
       retries: 3
-      start_period: 5s
+      start_period: 10s
     networks:
       - vstats-network
 

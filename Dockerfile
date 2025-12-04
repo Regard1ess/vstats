@@ -18,7 +18,10 @@ COPY web/ ./
 RUN npm run build
 
 # Stage 2: Build Go backend
-FROM golang:1.22-alpine AS backend-builder
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS backend-builder
+
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /app
 
@@ -34,8 +37,8 @@ RUN go mod download
 # Copy source files
 COPY server-go/ ./
 
-# Build the server binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Build the server binary for target platform
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -ldflags "-s -w" \
     -trimpath \
     -a -installsuffix cgo \
@@ -47,8 +50,9 @@ FROM alpine:latest
 
 WORKDIR /app
 
-# Install ca-certificates and wget for health checks
-RUN apk --no-cache add ca-certificates tzdata wget
+# Install ca-certificates for HTTPS and tzdata for timezone support
+# Note: Using separate RUN commands to avoid QEMU emulation issues with triggers
+RUN apk update && apk add --no-cache ca-certificates tzdata
 
 # Create non-root user
 RUN addgroup -g 1000 vstats && \
@@ -77,9 +81,9 @@ USER vstats
 # Expose default port (can be overridden via config or env)
 EXPOSE 3001
 
-# Health check (uses default port 3001, actual port may differ based on config)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+# Health check using the built-in binary (no external dependencies)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD /app/vstats-server version > /dev/null 2>&1 || exit 1
 
 # Run the server
 CMD ["/app/vstats-server"]
