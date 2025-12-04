@@ -714,45 +714,6 @@ function HistoryChart({ serverId }: { serverId: string }) {
           
           return (
             <div className={`transition-opacity ${opacity}`}>
-              {/* Stats cards for each target */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                {pingTargets.map((target, idx) => {
-                  const colorKey = pingColorKeys[idx % pingColorKeys.length];
-                  const colorSet = chartColors[colorKey];
-                  const stats = targetStats[idx];
-                  
-                  return (
-                    <div 
-                      key={target.name} 
-                      className="p-3 rounded-lg border"
-                      style={{ 
-                        backgroundColor: `${colorSet.stroke}08`,
-                        borderColor: `${colorSet.stroke}30`
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: colorSet.stroke }}
-                        />
-                        <span className="text-xs font-medium text-white truncate">{target.name}</span>
-                        <span className="text-[10px] text-gray-500 font-mono truncate">({target.host})</span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-500">
-                          <span className="text-emerald-400 font-mono">{stats.min.toFixed(0)}</span>
-                          <span className="mx-1">/</span>
-                          <span style={{ color: colorSet.stroke }} className="font-mono">{stats.avg.toFixed(0)}</span>
-                          <span className="mx-1">/</span>
-                          <span className="text-amber-400 font-mono">{stats.max.toFixed(0)}</span>
-                          <span className="ml-1 text-gray-600">ms</span>
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
               {/* Combined chart */}
               <div className="h-56 w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
@@ -779,7 +740,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                     />
                     <Tooltip content={<PingCombinedTooltip />} />
                     <Legend 
-                      verticalAlign="bottom" 
+                      verticalAlign="top" 
                       height={36}
                       iconType="circle"
                       iconSize={8}
@@ -808,6 +769,45 @@ function HistoryChart({ serverId }: { serverId: string }) {
                     })}
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+
+              {/* Stats cards for each target */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+                {pingTargets.map((target, idx) => {
+                  const colorKey = pingColorKeys[idx % pingColorKeys.length];
+                  const colorSet = chartColors[colorKey];
+                  const stats = targetStats[idx];
+                  
+                  return (
+                    <div 
+                      key={target.name} 
+                      className="p-3 rounded-lg border"
+                      style={{ 
+                        backgroundColor: `${colorSet.stroke}08`,
+                        borderColor: `${colorSet.stroke}30`
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: colorSet.stroke }}
+                        />
+                        <span className={`text-xs font-medium truncate ${isLight ? 'text-gray-900' : 'text-white'}`}>{target.name}</span>
+                        <span className="text-[10px] text-gray-500 font-mono truncate">({target.host})</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">
+                          <span className="text-emerald-400 font-mono">{stats.min.toFixed(0)}</span>
+                          <span className="mx-1">/</span>
+                          <span style={{ color: colorSet.stroke }} className="font-mono">{stats.avg.toFixed(0)}</span>
+                          <span className="mx-1">/</span>
+                          <span className="text-amber-400 font-mono">{stats.max.toFixed(0)}</span>
+                          <span className="ml-1 text-gray-600">ms</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
