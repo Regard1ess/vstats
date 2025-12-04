@@ -1151,7 +1151,7 @@ func (s *AppState) DeleteDimension(c *gin.Context) {
 // ============================================================================
 
 func (s *AppState) AddOption(c *gin.Context) {
-	dimID := c.Param("dimension_id")
+	dimID := c.Param("id")
 
 	var req AddOptionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -1188,7 +1188,7 @@ func (s *AppState) AddOption(c *gin.Context) {
 }
 
 func (s *AppState) UpdateOption(c *gin.Context) {
-	dimID := c.Param("dimension_id")
+	dimID := c.Param("id")
 	optID := c.Param("option_id")
 
 	var req UpdateOptionRequest
@@ -1229,7 +1229,7 @@ func (s *AppState) UpdateOption(c *gin.Context) {
 }
 
 func (s *AppState) DeleteOption(c *gin.Context) {
-	dimID := c.Param("dimension_id")
+	dimID := c.Param("id")
 	optID := c.Param("option_id")
 
 	s.ConfigMu.Lock()

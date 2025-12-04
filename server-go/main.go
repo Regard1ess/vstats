@@ -170,9 +170,9 @@ func main() {
 		protected.PUT("/api/dimensions/:id", state.UpdateDimension)
 		protected.DELETE("/api/dimensions/:id", state.DeleteDimension)
 		// Dimension options management
-		protected.POST("/api/dimensions/:dimension_id/options", state.AddOption)
-		protected.PUT("/api/dimensions/:dimension_id/options/:option_id", state.UpdateOption)
-		protected.DELETE("/api/dimensions/:dimension_id/options/:option_id", state.DeleteOption)
+		protected.POST("/api/dimensions/:id/options", state.AddOption)
+		protected.PUT("/api/dimensions/:id/options/:option_id", state.UpdateOption)
+		protected.DELETE("/api/dimensions/:id/options/:option_id", state.DeleteOption)
 	}
 
 	// Static file serving
