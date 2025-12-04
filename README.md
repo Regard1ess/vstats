@@ -8,11 +8,19 @@
 
 极简美观的服务器探针监控系统。Rust 驱动，毫秒级延迟，一键部署。
 
+## 💝 赞助
+
+<div align="center" style="border: 2px solid #e1e4e8; border-radius: 8px; padding: 16px; margin: 16px 0; background-color: #f6f8fa;">
+
+感谢 [TOHU Cloud](https://www.tohu.cloud) 对本项目的支持！
+
+</div>
+
+## 📸 预览
+
 **文档网站**: [vstats.zsoft.cc](https://vstats.zsoft.cc)
 
 **在线示例**: [vps.zsoft.cc](https://vps.zsoft.cc/)
-
-## 📸 预览
 
 <table>
   <tr>
@@ -325,3 +333,4 @@ MIT License
 ## 🤝 贡献
 
 欢迎提交 Issue 和 Pull Request！
+
