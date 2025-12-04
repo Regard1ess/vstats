@@ -51,7 +51,7 @@
 ### 安装主控端 (Dashboard)
 
 ```bash
-curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash
+curl -fsSL https://github.com/Regard1ess/vstats/raw/refs/heads/main/install.sh | sudo bash
 ```
 
 ### 安装探针 (Agent)
@@ -61,8 +61,8 @@ curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash
 #### Linux / macOS
 
 ```bash
-curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- \
-  --server http://YOUR_DASHBOARD_IP:3001 \
+curl -fsSL https://github.com/Regard1ess/vstats/raw/refs/heads/main/agent.sh | sudo bash -s -- \
+  --server http://YOUR_DASHBOARD_IP:30001 \
   --token "your-jwt-token" \
   --name "$(hostname)" \
   --location "US" \
@@ -76,13 +76,13 @@ curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- \
 Invoke-WebRequest -Uri "https://vstats.zsoft.cc/agent.ps1" -OutFile "agent.ps1"
 
 # 运行安装
-.\agent.ps1 -Server "http://YOUR_DASHBOARD_IP:3001" -Token "your-jwt-token" -Name $env:COMPUTERNAME
+.\agent.ps1 -Server "http://YOUR_DASHBOARD_IP:30001" -Token "your-jwt-token" -Name $env:COMPUTERNAME
 ```
 
 或一行命令安装：
 
 ```powershell
-irm https://vstats.zsoft.cc/agent.ps1 -OutFile agent.ps1; .\agent.ps1 -Server "http://YOUR_DASHBOARD_IP:3001" -Token "your-jwt-token"
+irm https://vstats.zsoft.cc/agent.ps1 -OutFile agent.ps1; .\agent.ps1 -Server "http://YOUR_DASHBOARD_IP:30001" -Token "your-jwt-token"
 ```
 
 ### 升级
@@ -110,10 +110,10 @@ curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- --upgrade
 
 ```bash
 # 卸载主控端
-curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash -s -- --uninstall
+curl -fsSL https://github.com/Regard1ess/vstats/raw/refs/heads/main/install.sh | sudo bash -s -- --uninstall
 
 # 卸载探针
-curl -fsSL https://vstats.zsoft.cc/agent.sh | sudo bash -s -- --uninstall
+curl -fsSL https://github.com/Regard1ess/vstats/raw/refs/heads/main/agent.sh | sudo bash -s -- --uninstall
 ```
 
 #### Windows (PowerShell 管理员模式)
@@ -154,7 +154,7 @@ cd server
 cargo run --release
 ```
 
-服务器将在 `http://localhost:3001` 启动。
+服务器将在 `http://localhost:30001` 启动。
 
 ### 启动前端开发服务器
 
