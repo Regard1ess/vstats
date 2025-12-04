@@ -458,6 +458,50 @@ func (s *AppState) GetAgentScript(c *gin.Context) {
 	c.JSON(http.StatusNotFound, gin.H{"error": "Agent script not found"})
 }
 
+func (s *AppState) GetAgentPowerShellScript(c *gin.Context) {
+	s.servePowerShellScript(c, "agent.ps1")
+}
+
+func (s *AppState) GetAgentUpgradePowerShellScript(c *gin.Context) {
+	s.servePowerShellScript(c, "agent-upgrade.ps1")
+}
+
+func (s *AppState) GetAgentUninstallPowerShellScript(c *gin.Context) {
+	s.servePowerShellScript(c, "agent-uninstall.ps1")
+}
+
+func (s *AppState) servePowerShellScript(c *gin.Context, filename string) {
+	// Try to read from web directory first (production)
+	webDir := getWebDir()
+	if webDir != "" {
+		scriptPath := webDir + "/" + filename
+		if data, err := os.ReadFile(scriptPath); err == nil {
+			c.Header("Content-Type", "text/plain; charset=utf-8")
+			c.String(http.StatusOK, string(data))
+			return
+		}
+	}
+
+	// Fallback: try relative paths (development)
+	paths := []string{
+		"./web/dist/" + filename,
+		"./web/public/" + filename,
+		"../web/dist/" + filename,
+		"../web/public/" + filename,
+	}
+
+	for _, path := range paths {
+		if data, err := os.ReadFile(path); err == nil {
+			c.Header("Content-Type", "text/plain; charset=utf-8")
+			c.String(http.StatusOK, string(data))
+			return
+		}
+	}
+
+	// Last resort: return error
+	c.JSON(http.StatusNotFound, gin.H{"error": "PowerShell script not found: " + filename})
+}
+
 func (s *AppState) GetInstallCommand(c *gin.Context) {
 	host := c.Request.Host
 	protocol := "https"

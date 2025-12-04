@@ -119,6 +119,9 @@ func main() {
 	r.GET("/version", GetServerVersion)
 	r.GET("/api/version/check", CheckLatestVersion)
 	r.GET("/agent.sh", state.GetAgentScript)
+	r.GET("/agent.ps1", state.GetAgentPowerShellScript)
+	r.GET("/agent-upgrade.ps1", state.GetAgentUpgradePowerShellScript)
+	r.GET("/agent-uninstall.ps1", state.GetAgentUninstallPowerShellScript)
 	r.GET("/ws", state.HandleDashboardWS)
 	r.GET("/ws/agent", state.HandleAgentWS)
 
