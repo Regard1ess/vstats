@@ -324,10 +324,9 @@ jobs:
           prerelease: false
 
   # ============================================================================
-  # Deploy to GitHub Pages
+  # Deploy to GitHub Pages (Documentation Site Only)
   # ============================================================================
   deploy-pages:
-    needs: build-web
     runs-on: ubuntu-latest
     # Only deploy from main branch to avoid environment protection rule issues with tags
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -340,27 +339,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Download web artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: web-dist
-          path: web-dist
-
       - name: Prepare pages content
         run: |
-          # Merge web build with docs
+          # Only deploy docs directory for GitHub Pages (documentation site)
           mkdir -p pages
-          # Copy docs first (if exists) - this includes CNAME file
           if [ -d "docs" ]; then
             cp -r docs/* pages/ || true
-          fi
-          # Copy web build (overwrites if conflicts, but preserve CNAME)
-          if [ -f "pages/CNAME" ]; then
-            cp pages/CNAME pages/CNAME.bak
-          fi
-          cp -r web-dist/* pages/
-          if [ -f "pages/CNAME.bak" ]; then
-            mv pages/CNAME.bak pages/CNAME
+          else
+            echo "Warning: docs directory not found"
           fi
 
       - name: Setup Pages
