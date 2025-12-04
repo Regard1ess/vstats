@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useServerManager, formatBytes, formatSpeed, formatUptime } from '../hooks/useMetrics';
 import { getOsIcon, getProviderIcon } from '../components/Icons';
 import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUtils';
+import { useTheme } from '../context/ThemeContext';
 import type { HistoryPoint, HistoryResponse, PingHistoryTarget } from '../types';
 import {
   LineChart,
@@ -71,18 +72,24 @@ const CustomTooltip = ({
   label, 
   formatValue,
   labelFormatter,
+  isLight,
 }: {
   active?: boolean;
   payload?: Array<{ value: number; name: string; color: string }>;
   label?: string;
   formatValue?: (v: number) => string;
   labelFormatter?: (label: string) => string;
+  isLight?: boolean;
 }) => {
   if (!active || !payload?.length) return null;
   
   return (
-    <div className="bg-gray-900/95 backdrop-blur-sm border border-white/10 rounded-lg p-3 shadow-xl">
-      <p className="text-xs text-gray-400 mb-2 font-mono">
+    <div className={`backdrop-blur-sm rounded-lg p-3 shadow-xl ${
+      isLight 
+        ? 'bg-white/95 border border-gray-200' 
+        : 'bg-gray-900/95 border border-white/10'
+    }`}>
+      <p className={`text-xs mb-2 font-mono ${isLight ? 'text-gray-500' : 'text-gray-400'}`}>
         {labelFormatter ? labelFormatter(label || '') : label}
       </p>
       {payload.map((entry, index) => (
@@ -91,8 +98,8 @@ const CustomTooltip = ({
             className="w-2 h-2 rounded-full" 
             style={{ backgroundColor: entry.color }}
           />
-          <span className="text-xs text-gray-300">{entry.name}:</span>
-          <span className="text-sm font-mono font-semibold text-white">
+          <span className={`text-xs ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>{entry.name}:</span>
+          <span className={`text-sm font-mono font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
             {formatValue ? formatValue(entry.value) : entry.value}
           </span>
         </div>
@@ -102,6 +109,8 @@ const CustomTooltip = ({
 };
 
 function HistoryChart({ serverId }: { serverId: string }) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [range, setRange] = useState<TimeRange>('24h');
   const [tab, setTab] = useState<HistoryTab>('overview');
   const [data, setData] = useState<HistoryPoint[]>([]);
@@ -109,6 +118,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Theme-aware colors for chart elements
+  const chartTheme = {
+    gridColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)',
+    tickColor: isLight ? '#374151' : '#6b7280',
+    legendColor: isLight ? '#4b5563' : '#9ca3af',
+  };
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -217,27 +233,27 @@ function HistoryChart({ serverId }: { serverId: string }) {
               className="w-3 h-3 rounded-full" 
               style={{ backgroundColor: colorSet.stroke }}
             />
-            <span className="text-sm font-medium text-white">{label}</span>
+            <span className={`text-sm font-medium ${isLight ? 'text-gray-900' : 'text-white'}`}>{label}</span>
           </div>
           <div className="flex gap-4 text-xs">
-            <span className="text-gray-500">min: <span className="text-emerald-400 font-mono">{formatValue(min)}</span></span>
-            <span className="text-gray-500">avg: <span style={{ color: colorSet.stroke }} className="font-mono">{formatValue(avg)}</span></span>
-            <span className="text-gray-500">max: <span className="text-amber-400 font-mono">{formatValue(max)}</span></span>
+            <span className={isLight ? 'text-gray-500' : 'text-gray-500'}>min: <span className="text-emerald-500 font-mono">{formatValue(min)}</span></span>
+            <span className={isLight ? 'text-gray-500' : 'text-gray-500'}>avg: <span style={{ color: colorSet.stroke }} className="font-mono">{formatValue(avg)}</span></span>
+            <span className={isLight ? 'text-gray-500' : 'text-gray-500'}>max: <span className="text-amber-500 font-mono">{formatValue(max)}</span></span>
           </div>
         </div>
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
               <CartesianGrid 
                 strokeDasharray="3 3" 
-                stroke="rgba(255,255,255,0.05)" 
+                stroke={chartTheme.gridColor} 
                 vertical={false}
               />
               <XAxis 
                 dataKey="formattedTime"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                 interval="preserveStartEnd"
                 minTickGap={50}
               />
@@ -245,14 +261,15 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 domain={maxValue ? [0, maxValue] : ['auto', 'auto']}
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                 tickFormatter={formatValue}
-                width={45}
+                width={50}
               />
               <Tooltip
                 content={
                   <CustomTooltip 
                     formatValue={formatValue}
+                    isLight={isLight}
                     labelFormatter={(label) => {
                       const point = sampledData.find(d => d.formattedTime === label);
                       return point ? formatFullTime(point.timestamp) : label;
@@ -266,7 +283,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 stroke={colorSet.stroke}
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: isLight ? '#ffffff' : '#1f2937' }}
                 name={label}
                 isAnimationActive={false}
               />
@@ -290,17 +307,17 @@ function HistoryChart({ serverId }: { serverId: string }) {
     return (
       <div className="h-72 w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+          <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
             <CartesianGrid 
               strokeDasharray="3 3" 
-              stroke="rgba(255,255,255,0.05)" 
+              stroke={chartTheme.gridColor} 
               vertical={false}
             />
             <XAxis 
               dataKey="formattedTime"
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
               interval="preserveStartEnd"
               minTickGap={50}
             />
@@ -308,14 +325,15 @@ function HistoryChart({ serverId }: { serverId: string }) {
               domain={maxValue ? [0, maxValue] : ['auto', 'auto']}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#6b7280', fontSize: 10 }}
+              tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
               tickFormatter={formatValue}
-              width={45}
+              width={50}
             />
             <Tooltip
               content={
                 <CustomTooltip 
                   formatValue={formatValue}
+                  isLight={isLight}
                   labelFormatter={(label) => {
                     const point = sampledData.find(d => d.formattedTime === label);
                     return point ? formatFullTime(point.timestamp) : label;
@@ -328,7 +346,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
               height={36}
               iconType="circle"
               iconSize={8}
-              formatter={(value) => <span className="text-xs text-gray-400">{value}</span>}
+              formatter={(value) => <span className="text-xs" style={{ color: chartTheme.legendColor }}>{value}</span>}
             />
             {lines.map(({ dataKey, color, label }) => (
               <Line
@@ -338,7 +356,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 stroke={chartColors[color].stroke}
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 2, stroke: chartColors[color].stroke, fill: '#1f2937' }}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: chartColors[color].stroke, fill: isLight ? '#ffffff' : '#1f2937' }}
                 name={label}
                 isAnimationActive={false}
               />
@@ -355,31 +373,32 @@ function HistoryChart({ serverId }: { serverId: string }) {
       <div className="space-y-6">
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
+            <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -5, bottom: 5 }}>
               <CartesianGrid 
                 strokeDasharray="3 3" 
-                stroke="rgba(255,255,255,0.05)" 
+                stroke={chartTheme.gridColor} 
                 vertical={false}
               />
               <XAxis 
                 dataKey="formattedTime"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                 interval="preserveStartEnd"
                 minTickGap={50}
               />
               <YAxis
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6b7280', fontSize: 10 }}
+                tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                 tickFormatter={formatBytesLocal}
-                width={55}
+                width={60}
               />
               <Tooltip
                 content={
                   <CustomTooltip 
                     formatValue={formatBytesLocal}
+                    isLight={isLight}
                     labelFormatter={(label) => {
                       const point = sampledData.find(d => d.formattedTime === label);
                       return point ? formatFullTime(point.timestamp) : label;
@@ -392,7 +411,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 height={36}
                 iconType="circle"
                 iconSize={8}
-                formatter={(value) => <span className="text-xs text-gray-400">{value}</span>}
+                formatter={(value) => <span className="text-xs" style={{ color: chartTheme.legendColor }}>{value}</span>}
               />
               <Line
                 type="monotone"
@@ -400,7 +419,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 stroke="#10b981"
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 2, stroke: '#10b981', fill: '#1f2937' }}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: '#10b981', fill: isLight ? '#ffffff' : '#1f2937' }}
                 name="Upload (TX)"
                 isAnimationActive={false}
               />
@@ -410,7 +429,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 stroke="#06b6d4"
                 strokeWidth={2}
                 dot={false}
-                activeDot={{ r: 4, strokeWidth: 2, stroke: '#06b6d4', fill: '#1f2937' }}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: '#06b6d4', fill: isLight ? '#ffffff' : '#1f2937' }}
                 name="Download (RX)"
                 isAnimationActive={false}
               />
@@ -420,13 +439,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
         <div className="grid grid-cols-2 gap-4 text-center">
           <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
             <div className="text-[10px] text-gray-500 uppercase">Total Upload</div>
-            <div className="text-lg font-mono text-emerald-400">
+            <div className="text-lg font-mono text-emerald-500">
               {formatBytesLocal(data.reduce((a, b) => a + b.net_tx, 0))}
             </div>
           </div>
           <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
             <div className="text-[10px] text-gray-500 uppercase">Total Download</div>
-            <div className="text-lg font-mono text-cyan-400">
+            <div className="text-lg font-mono text-cyan-500">
               {formatBytesLocal(data.reduce((a, b) => a + b.net_rx, 0))}
             </div>
           </div>
@@ -657,8 +676,14 @@ function HistoryChart({ serverId }: { serverId: string }) {
             const timeLabel = point ? formatFullTime(point.timestamp as string) : label;
             
             return (
-              <div className="bg-gray-900/95 backdrop-blur-sm border border-white/10 rounded-lg p-3 shadow-xl min-w-[180px]">
-                <p className="text-xs text-gray-400 mb-2 font-mono border-b border-white/10 pb-2">
+              <div className={`backdrop-blur-sm rounded-lg p-3 shadow-xl min-w-[180px] ${
+                isLight 
+                  ? 'bg-white/95 border border-gray-200' 
+                  : 'bg-gray-900/95 border border-white/10'
+              }`}>
+                <p className={`text-xs mb-2 font-mono border-b pb-2 ${
+                  isLight ? 'text-gray-500 border-gray-200' : 'text-gray-400 border-white/10'
+                }`}>
                   {timeLabel}
                 </p>
                 <div className="space-y-1.5">
@@ -672,9 +697,9 @@ function HistoryChart({ serverId }: { serverId: string }) {
                             className="w-2 h-2 rounded-full" 
                             style={{ backgroundColor: entry.color }}
                           />
-                          <span className="text-xs text-gray-300">{target?.name || entry.name}</span>
+                          <span className={`text-xs ${isLight ? 'text-gray-600' : 'text-gray-300'}`}>{target?.name || entry.name}</span>
                         </div>
-                        <span className="text-sm font-mono font-semibold text-white">
+                        <span className={`text-sm font-mono font-semibold ${isLight ? 'text-gray-900' : 'text-white'}`}>
                           {entry.value !== null ? `${entry.value.toFixed(1)}ms` : 'N/A'}
                         </span>
                       </div>
@@ -729,26 +754,26 @@ function HistoryChart({ serverId }: { serverId: string }) {
               {/* Combined chart */}
               <div className="h-56 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={combinedPingData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                  <LineChart data={combinedPingData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                     <CartesianGrid 
                       strokeDasharray="3 3" 
-                      stroke="rgba(255,255,255,0.05)" 
+                      stroke={chartTheme.gridColor} 
                       vertical={false}
                     />
                     <XAxis 
                       dataKey="formattedTime"
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#6b7280', fontSize: 10 }}
+                      tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                       interval="preserveStartEnd"
                       minTickGap={50}
                     />
                     <YAxis
                       axisLine={false}
                       tickLine={false}
-                      tick={{ fill: '#6b7280', fontSize: 10 }}
+                      tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                       tickFormatter={v => `${v}ms`}
-                      width={45}
+                      width={55}
                     />
                     <Tooltip content={<PingCombinedTooltip />} />
                     <Legend 
@@ -758,7 +783,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                       iconSize={8}
                       formatter={(value, entry) => {
                         const idx = parseInt((entry.dataKey as string).replace('ping_', ''));
-                        return <span className="text-xs text-gray-400">{pingTargets[idx]?.name || value}</span>;
+                        return <span className="text-xs" style={{ color: chartTheme.legendColor }}>{pingTargets[idx]?.name || value}</span>;
                       }}
                     />
                     {pingTargets.map((target, idx) => {
@@ -772,7 +797,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                           stroke={colorSet.stroke}
                           strokeWidth={2}
                           dot={false}
-                          activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
+                          activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: isLight ? '#ffffff' : '#1f2937' }}
                           name={target.name}
                           connectNulls={false}
                           isAnimationActive={false}
@@ -819,41 +844,42 @@ function HistoryChart({ serverId }: { serverId: string }) {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-rose-500" />
-                <span className="text-sm font-medium text-white">Ping Latency (Average)</span>
+                <span className={`text-sm font-medium ${isLight ? 'text-gray-900' : 'text-white'}`}>Ping Latency (Average)</span>
               </div>
               <div className="flex gap-4 text-xs">
-                <span className="text-gray-500">min: <span className="text-emerald-400 font-mono">{minPing.toFixed(1)}ms</span></span>
-                <span className="text-gray-500">avg: <span className="text-rose-400 font-mono">{avgPing.toFixed(1)}ms</span></span>
-                <span className="text-gray-500">max: <span className="text-amber-400 font-mono">{maxPing.toFixed(1)}ms</span></span>
+                <span className="text-gray-500">min: <span className="text-emerald-500 font-mono">{minPing.toFixed(1)}ms</span></span>
+                <span className="text-gray-500">avg: <span className="text-rose-500 font-mono">{avgPing.toFixed(1)}ms</span></span>
+                <span className="text-gray-500">max: <span className="text-amber-500 font-mono">{maxPing.toFixed(1)}ms</span></span>
               </div>
             </div>
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={pingChartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                <LineChart data={pingChartData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                   <CartesianGrid 
                     strokeDasharray="3 3" 
-                    stroke="rgba(255,255,255,0.05)" 
+                    stroke={chartTheme.gridColor} 
                     vertical={false}
                   />
                   <XAxis 
                     dataKey="formattedTime"
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#6b7280', fontSize: 10 }}
+                    tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                     interval="preserveStartEnd"
                     minTickGap={50}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#6b7280', fontSize: 10 }}
+                    tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
                     tickFormatter={v => `${v}ms`}
-                    width={45}
+                    width={55}
                   />
                   <Tooltip
                     content={
                       <CustomTooltip 
                         formatValue={v => `${v.toFixed(1)} ms`}
+                        isLight={isLight}
                         labelFormatter={(label) => {
                           const point = pingChartData.find(d => d.formattedTime === label);
                           return point ? formatFullTime(point.timestamp) : label;
@@ -867,7 +893,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                     stroke="#f43f5e"
                     strokeWidth={2}
                     dot={false}
-                    activeDot={{ r: 4, strokeWidth: 2, stroke: '#f43f5e', fill: '#1f2937' }}
+                    activeDot={{ r: 4, strokeWidth: 2, stroke: '#f43f5e', fill: isLight ? '#ffffff' : '#1f2937' }}
                     name="Latency"
                     isAnimationActive={false}
                   />

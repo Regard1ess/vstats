@@ -718,9 +718,13 @@ function VpsCompactCard({ server, onClick, isDark }: {
     return (
       <div className={`vps-compact-row vps-compact-row--${themeClass} animate-pulse`} onClick={onClick}>
         <div className="vps-compact-col vps-compact-col--node">
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 skeleton-bg rounded" />
-            <div className="h-3 skeleton-bg rounded w-20" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-2 h-2 skeleton-bg rounded-full" />
+            <div className="w-9 h-9 skeleton-bg rounded-xl" />
+            <div className="space-y-1">
+              <div className="h-3.5 skeleton-bg rounded w-20" />
+              <div className="h-3 skeleton-bg rounded w-14" />
+            </div>
           </div>
         </div>
         <div className="vps-compact-col vps-compact-col--type">
@@ -779,12 +783,21 @@ function VpsCompactCard({ server, onClick, isDark }: {
       {/* NODE */}
       <div className="vps-compact-col vps-compact-col--node">
         <span className={`vps-compact-status ${isConnected ? 'is-online' : 'is-offline'}`} />
+        {/* Country Flag as main icon */}
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+          isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'
+        }`}>
+          {flag ? (
+            <span className="text-xl">{flag}</span>
+          ) : (
+            <span className="text-xl">🌍</span>
+          )}
+        </div>
         <div className="vps-compact-node-info">
           <span className={`vps-compact-node-name vps-compact-node-name--${themeClass}`}>
             {config.name}
           </span>
           <span className={`vps-compact-node-location vps-compact-node-location--${themeClass}`}>
-            {flag && <span className="text-base mr-1">{flag}</span>}
             {config.location || 'Unknown'}
           </span>
         </div>
