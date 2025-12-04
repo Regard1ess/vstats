@@ -153,8 +153,7 @@ func main() {
 		// OAuth settings (admin only)
 		protected.GET("/api/settings/oauth", state.GetOAuthSettings)
 		protected.PUT("/api/settings/oauth", state.UpdateOAuthSettings)
-		// Group management
-		protected.GET("/api/groups", state.GetGroups)
+		// Group management (GET is public, mutations are protected)
 		protected.POST("/api/groups", state.AddGroup)
 		protected.PUT("/api/groups/:id", state.UpdateGroup)
 		protected.DELETE("/api/groups/:id", state.DeleteGroup)
