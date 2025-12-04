@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
-import type { SiteSettings, SocialLink } from '../types';
+import type { SiteSettings, SocialLink, ServerGroup } from '../types';
 
 // Universal copy to clipboard function that works in all contexts
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -52,6 +52,7 @@ interface RemoteServer {
   location: string;
   provider: string;
   tag?: string;
+  group_id?: string;
   version?: string;
   token?: string;
   ip?: string;
@@ -102,7 +103,7 @@ export default function Settings() {
   
   // New server form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newServer, setNewServer] = useState({ name: '', url: '', location: '', provider: '', tag: '' });
+  const [newServer, setNewServer] = useState({ name: '', url: '', location: '', provider: '', tag: '', group_id: '' });
   const [addLoading, setAddLoading] = useState(false);
   
   // Password change
@@ -125,6 +126,25 @@ export default function Settings() {
   const [checkingVersion, setCheckingVersion] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
   
+  // OAuth settings
+  const [showOAuthSettings, setShowOAuthSettings] = useState(false);
+  const [oauthSettings, setOauthSettings] = useState<{
+    use_centralized?: boolean;
+    allowed_users?: string[];
+    github?: { enabled: boolean; client_id: string; has_secret: boolean; allowed_users: string[] };
+    google?: { enabled: boolean; client_id: string; has_secret: boolean; allowed_users: string[] };
+  }>({});
+  const [oauthForm, setOauthForm] = useState({
+    use_centralized: true,
+    allowed_users: '',
+    github: { enabled: false, client_id: '', client_secret: '', allowed_users: '' },
+    google: { enabled: false, client_id: '', client_secret: '', allowed_users: '' }
+  });
+  const [oauthSaving, setOauthSaving] = useState(false);
+  const [oauthSuccess, setOauthSuccess] = useState(false);
+  // Used to track if self-hosted OAuth was previously configured
+  const [, setShowAdvancedOAuth] = useState(false);
+  
   // Edit server
   const [editingServer, setEditingServer] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ 
@@ -132,6 +152,7 @@ export default function Settings() {
     location: '', 
     provider: '', 
     tag: '',
+    group_id: '',
     price_amount: '',
     price_period: 'month' as 'month' | 'year',
     purchase_date: '',
@@ -142,7 +163,17 @@ export default function Settings() {
   const [editError, setEditError] = useState<string | null>(null);
   
   // Local node config
-  const [localNodeConfig, setLocalNodeConfig] = useState({ name: '', location: '', provider: '', tag: '' });
+  const [localNodeConfig, setLocalNodeConfig] = useState({ 
+    name: '', 
+    location: '', 
+    provider: '', 
+    tag: '',
+    group_id: '',
+    price_amount: '',
+    price_period: 'month' as 'month' | 'year',
+    purchase_date: '',
+    tip_badge: ''
+  });
   const [showLocalNodeForm, setShowLocalNodeForm] = useState(false);
   const [localNodeSaving, setLocalNodeSaving] = useState(false);
   const [localNodeSuccess, setLocalNodeSuccess] = useState(false);
@@ -151,7 +182,30 @@ export default function Settings() {
   const [probeSettings, setProbeSettings] = useState<ProbeSettings>({ ping_targets: [] });
   const [showProbeSettings, setShowProbeSettings] = useState(false);
   const [probeSaving, setProbeSaving] = useState(false);
+  
+  // Group management
+  interface ServerGroupLocal {
+    id: string;
+    name: string;
+    sort_order: number;
+  }
+  const [groups, setGroups] = useState<ServerGroupLocal[]>([]);
+  const [showGroupsSection, setShowGroupsSection] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [addingGroup, setAddingGroup] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<string | null>(null);
+  const [editGroupName, setEditGroupName] = useState('');
   const [probeSuccess, setProbeSuccess] = useState(false);
+  
+  // Groups management (reserved for future use)
+  const [_groups, _setGroups] = useState<ServerGroup[]>([]);
+  const [_showGroupsSection, _setShowGroupsSection] = useState(false);
+  const [_newGroupName, _setNewGroupName] = useState('');
+  const [_addingGroup, _setAddingGroup] = useState(false);
+  const [_editingGroup, _setEditingGroup] = useState<string | null>(null);
+  const [_editGroupName, _setEditGroupName] = useState('');
+  // Suppress unused warnings
+  void [_groups, _setGroups, _showGroupsSection, _setShowGroupsSection, _newGroupName, _setNewGroupName, _addingGroup, _setAddingGroup, _editingGroup, _setEditingGroup, _editGroupName, _setEditGroupName];
 
   useEffect(() => {
     // Wait for auth check to complete before redirecting
@@ -165,10 +219,12 @@ export default function Settings() {
     fetchSiteSettings();
     fetchLocalNodeConfig();
     fetchProbeSettings();
+    fetchGroups();
     generateInstallCommand();
     fetchAgentStatus();
     fetchServerVersion();
     checkLatestVersion();
+    fetchOAuthSettings();
   }, [isAuthenticated, authLoading, navigate]);
   
   // Refresh agent status periodically
@@ -296,6 +352,106 @@ export default function Settings() {
     }
   };
   
+  const fetchOAuthSettings = async () => {
+    try {
+      const res = await fetch('/api/settings/oauth', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOauthSettings(data);
+        // Populate form with existing data
+        setOauthForm({
+          use_centralized: data.use_centralized ?? true,
+          allowed_users: data.allowed_users?.join(', ') || '',
+          github: {
+            enabled: data.github?.enabled || false,
+            client_id: data.github?.client_id || '',
+            client_secret: '',
+            allowed_users: data.github?.allowed_users?.join(', ') || ''
+          },
+          google: {
+            enabled: data.google?.enabled || false,
+            client_id: data.google?.client_id || '',
+            client_secret: '',
+            allowed_users: data.google?.allowed_users?.join(', ') || ''
+          }
+        });
+        // Show advanced settings if self-hosted is configured
+        if (!data.use_centralized && (data.github?.enabled || data.google?.enabled)) {
+          setShowAdvancedOAuth(true);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch OAuth settings', e);
+    }
+  };
+  
+  const saveOAuthSettings = async () => {
+    setOauthSaving(true);
+    setOauthSuccess(false);
+    
+    try {
+      const payload: Record<string, any> = {
+        use_centralized: oauthForm.use_centralized,
+        allowed_users: oauthForm.allowed_users
+          .split(',')
+          .map(u => u.trim())
+          .filter(u => u.length > 0)
+      };
+      
+      // Only include self-hosted OAuth if not using centralized
+      if (!oauthForm.use_centralized) {
+        // GitHub settings
+        payload.github = {
+          enabled: oauthForm.github.enabled,
+          client_id: oauthForm.github.client_id,
+          allowed_users: oauthForm.github.allowed_users
+            .split(',')
+            .map(u => u.trim())
+            .filter(u => u.length > 0)
+        };
+        if (oauthForm.github.client_secret) {
+          payload.github.client_secret = oauthForm.github.client_secret;
+        }
+        
+        // Google settings
+        payload.google = {
+          enabled: oauthForm.google.enabled,
+          client_id: oauthForm.google.client_id,
+          allowed_users: oauthForm.google.allowed_users
+            .split(',')
+            .map(u => u.trim())
+            .filter(u => u.length > 0)
+        };
+        if (oauthForm.google.client_secret) {
+          payload.google.client_secret = oauthForm.google.client_secret;
+        }
+      }
+      
+      const res = await fetch('/api/settings/oauth', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (res.ok) {
+        setOauthSuccess(true);
+        fetchOAuthSettings(); // Refresh to get updated state
+        setTimeout(() => setOauthSuccess(false), 3000);
+      }
+    } catch (e) {
+      console.error('Failed to save OAuth settings', e);
+    }
+    
+    setOauthSaving(false);
+  };
+  
   const saveProbeSettings = async () => {
     setProbeSaving(true);
     setProbeSuccess(false);
@@ -328,6 +484,113 @@ export default function Settings() {
       ...probeSettings,
       ping_targets: [...probeSettings.ping_targets, { name: '', host: '' }]
     });
+  };
+  
+  // ============================================================================
+  // Group Management Functions
+  // ============================================================================
+  
+  const fetchGroups = async () => {
+    try {
+      const res = await fetch('/api/groups', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGroups(data || []);
+      }
+    } catch (e) {
+      console.error('Failed to fetch groups', e);
+    }
+  };
+  
+  const addGroup = async () => {
+    if (!newGroupName.trim()) return;
+    
+    setAddingGroup(true);
+    try {
+      const res = await fetch('/api/groups', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: newGroupName.trim(),
+          sort_order: groups.length
+        })
+      });
+      
+      if (res.ok) {
+        const group = await res.json();
+        setGroups([...groups, group]);
+        setNewGroupName('');
+        showToast('Group created successfully', 'success');
+      } else {
+        showToast('Failed to create group', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to add group', e);
+      showToast('Failed to create group', 'error');
+    }
+    setAddingGroup(false);
+  };
+  
+  const updateGroupName = async (groupId: string) => {
+    if (!editGroupName.trim()) return;
+    
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: editGroupName.trim() })
+      });
+      
+      if (res.ok) {
+        const updated = await res.json();
+        setGroups(groups.map(g => g.id === groupId ? updated : g));
+        setEditingGroup(null);
+        setEditGroupName('');
+        showToast('Group updated successfully', 'success');
+      } else {
+        showToast('Failed to update group', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to update group', e);
+      showToast('Failed to update group', 'error');
+    }
+  };
+  
+  const deleteGroup = async (groupId: string) => {
+    if (!confirm('Are you sure you want to delete this group? Servers in this group will be moved to "Ungrouped".')) {
+      return;
+    }
+    
+    try {
+      const res = await fetch(`/api/groups/${groupId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (res.ok) {
+        setGroups(groups.filter(g => g.id !== groupId));
+        // Update servers that had this group
+        setServers(servers.map(s => s.group_id === groupId ? { ...s, group_id: undefined } : s));
+        showToast('Group deleted successfully', 'success');
+      } else {
+        showToast('Failed to delete group', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to delete group', e);
+      showToast('Failed to delete group', 'error');
+    }
   };
   
   const removePingTarget = (index: number) => {
@@ -513,6 +776,7 @@ export default function Settings() {
       location: server.location,
       provider: server.provider,
       tag: server.tag || '',
+      group_id: server.group_id || '',
       price_amount: server.price_amount || '',
       price_period: (server.price_period as 'month' | 'year') || 'month',
       purchase_date: server.purchase_date || '',
@@ -540,6 +804,7 @@ export default function Settings() {
         location: editForm.location.trim(),
         provider: editForm.provider.trim(),
         tag: editForm.tag.trim(),
+        group_id: editForm.group_id || '',
       };
       
       // Add price fields if provided
@@ -576,6 +841,7 @@ export default function Settings() {
             location: '', 
             provider: '', 
             tag: '',
+            group_id: '',
             price_amount: '',
             price_period: 'month',
             purchase_date: '',
@@ -612,7 +878,7 @@ export default function Settings() {
       if (res.ok) {
         const server = await res.json();
         setServers([...servers, server]);
-        setNewServer({ name: '', url: '', location: '', provider: '', tag: '' });
+        setNewServer({ name: '', url: '', location: '', provider: '', tag: '', group_id: '' });
         setShowAddForm(false);
       }
     } catch (e) {
@@ -926,6 +1192,355 @@ export default function Settings() {
         )}
       </div>
 
+      {/* OAuth Settings Section */}
+      <div className="nezha-card p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+            OAuth 2.0 Settings
+          </h2>
+          <button
+            onClick={() => setShowOAuthSettings(!showOAuthSettings)}
+            className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-sm font-medium transition-colors"
+          >
+            {showOAuthSettings ? 'Hide' : 'Configure'}
+          </button>
+        </div>
+        
+        <p className="text-gray-400 text-sm mb-4">
+          Enable GitHub and Google OAuth for secure single sign-on authentication.
+        </p>
+        
+        {oauthSuccess && (
+          <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
+            OAuth settings saved successfully!
+          </div>
+        )}
+        
+        {showOAuthSettings && (
+          <div className="space-y-6">
+            {/* GitHub OAuth */}
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-[#24292e] flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-white">GitHub OAuth</h3>
+                    <p className="text-xs text-gray-500">Allow users to login with GitHub</p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={oauthForm.github.enabled}
+                    onChange={(e) => setOauthForm({
+                      ...oauthForm,
+                      github: { ...oauthForm.github, enabled: e.target.checked }
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+              
+              {oauthForm.github.enabled && (
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Client ID</label>
+                      <input
+                        type="text"
+                        value={oauthForm.github.client_id}
+                        onChange={(e) => setOauthForm({
+                          ...oauthForm,
+                          github: { ...oauthForm.github, client_id: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50 font-mono"
+                        placeholder="GitHub OAuth App Client ID"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">
+                        Client Secret {oauthSettings.github?.has_secret && <span className="text-emerald-400">(configured)</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={oauthForm.github.client_secret}
+                        onChange={(e) => setOauthForm({
+                          ...oauthForm,
+                          github: { ...oauthForm.github, client_secret: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50 font-mono"
+                        placeholder={oauthSettings.github?.has_secret ? '••••••••' : 'GitHub OAuth App Client Secret'}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Allowed Users <span className="text-gray-600">(GitHub usernames, comma-separated, leave empty for any)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={oauthForm.github.allowed_users}
+                      onChange={(e) => setOauthForm({
+                        ...oauthForm,
+                        github: { ...oauthForm.github, allowed_users: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50"
+                      placeholder="username1, username2"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 bg-black/20 rounded-lg p-3">
+                    <p className="font-medium text-gray-400 mb-1">Setup Instructions:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Go to GitHub → Settings → Developer settings → OAuth Apps</li>
+                      <li>Click "New OAuth App"</li>
+                      <li>Set Authorization callback URL to: <code className="text-orange-400">{window.location.origin}/api/auth/oauth/github/callback</code></li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Google OAuth */}
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
+                    <svg className="w-5 h-5" viewBox="0 0 24 24">
+                      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-medium text-white">Google OAuth</h3>
+                    <p className="text-xs text-gray-500">Allow users to login with Google</p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={oauthForm.google.enabled}
+                    onChange={(e) => setOauthForm({
+                      ...oauthForm,
+                      google: { ...oauthForm.google, enabled: e.target.checked }
+                    })}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+              </div>
+              
+              {oauthForm.google.enabled && (
+                <div className="space-y-3 pt-4 border-t border-white/5">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Client ID</label>
+                      <input
+                        type="text"
+                        value={oauthForm.google.client_id}
+                        onChange={(e) => setOauthForm({
+                          ...oauthForm,
+                          google: { ...oauthForm.google, client_id: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50 font-mono"
+                        placeholder="Google OAuth Client ID"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">
+                        Client Secret {oauthSettings.google?.has_secret && <span className="text-emerald-400">(configured)</span>}
+                      </label>
+                      <input
+                        type="password"
+                        value={oauthForm.google.client_secret}
+                        onChange={(e) => setOauthForm({
+                          ...oauthForm,
+                          google: { ...oauthForm.google, client_secret: e.target.value }
+                        })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50 font-mono"
+                        placeholder={oauthSettings.google?.has_secret ? '••••••••' : 'Google OAuth Client Secret'}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">
+                      Allowed Users <span className="text-gray-600">(Google emails, comma-separated, leave empty for any)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={oauthForm.google.allowed_users}
+                      onChange={(e) => setOauthForm({
+                        ...oauthForm,
+                        google: { ...oauthForm.google, allowed_users: e.target.value }
+                      })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50"
+                      placeholder="user@gmail.com, admin@company.com"
+                    />
+                  </div>
+                  <div className="text-xs text-gray-500 bg-black/20 rounded-lg p-3">
+                    <p className="font-medium text-gray-400 mb-1">Setup Instructions:</p>
+                    <ol className="list-decimal list-inside space-y-1">
+                      <li>Go to Google Cloud Console → APIs & Services → Credentials</li>
+                      <li>Create OAuth 2.0 Client ID (Web application)</li>
+                      <li>Add authorized redirect URI: <code className="text-orange-400">{window.location.origin}/api/auth/oauth/google/callback</code></li>
+                    </ol>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={saveOAuthSettings}
+                disabled={oauthSaving}
+                className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {oauthSaving ? 'Saving...' : 'Save OAuth Settings'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Groups Management Section */}
+      <div className="nezha-card p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+            Server Groups
+          </h2>
+          <button
+            onClick={() => setShowGroupsSection(!showGroupsSection)}
+            className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-sm font-medium transition-colors"
+          >
+            {showGroupsSection ? 'Hide' : 'Manage'}
+          </button>
+        </div>
+        
+        <p className="text-gray-400 text-sm mb-4">
+          Create groups to organize your servers. Groups help categorize servers on the dashboard.
+        </p>
+        
+        {showGroupsSection && (
+          <div className="space-y-4">
+            {/* Add New Group */}
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50"
+                placeholder="New group name..."
+                onKeyDown={(e) => e.key === 'Enter' && addGroup()}
+              />
+              <button
+                onClick={addGroup}
+                disabled={addingGroup || !newGroupName.trim()}
+                className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                {addingGroup ? 'Adding...' : 'Add Group'}
+              </button>
+            </div>
+            
+            {/* Groups List */}
+            {groups.length === 0 ? (
+              <div className="text-gray-600 text-sm text-center py-4 border border-dashed border-white/10 rounded-lg">
+                No groups created yet. Create a group to organize your servers.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {groups.map((group) => (
+                  <div
+                    key={group.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors"
+                  >
+                    {editingGroup === group.id ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="text"
+                          value={editGroupName}
+                          onChange={(e) => setEditGroupName(e.target.value)}
+                          className="flex-1 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') updateGroupName(group.id);
+                            if (e.key === 'Escape') {
+                              setEditingGroup(null);
+                              setEditGroupName('');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => updateGroupName(group.id)}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-medium transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingGroup(null);
+                            setEditGroupName('');
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-xs transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
+                            <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">{group.name}</div>
+                            <div className="text-xs text-gray-500">
+                              {servers.filter(s => s.group_id === group.id).length} servers
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              setEditingGroup(group.id);
+                              setEditGroupName(group.name);
+                            }}
+                            className="p-2 rounded-lg hover:bg-blue-500/10 text-gray-500 hover:text-blue-400 transition-colors"
+                            title="Edit Group"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => deleteGroup(group.id)}
+                            className="p-2 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors"
+                            title="Delete Group"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Quick Install Section */}
       <div className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
@@ -1074,6 +1689,19 @@ export default function Settings() {
                   placeholder="e.g., AWS, Vultr"
                 />
               </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Group</label>
+                <select
+                  value={newServer.group_id}
+                  onChange={(e) => setNewServer({ ...newServer, group_id: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                >
+                  <option value="">No Group</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm transition-colors">
@@ -1103,7 +1731,7 @@ export default function Settings() {
                     <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase">Local</span>
                     <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
                     {localNodeConfig.location && (
                       <span className="text-xs text-gray-500">{localNodeConfig.location}</span>
                     )}
@@ -1113,6 +1741,22 @@ export default function Settings() {
                     {localNodeConfig.tag && (
                       <span className="px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-xs">
                         {localNodeConfig.tag}
+                      </span>
+                    )}
+                    {localNodeConfig.price_amount && (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 text-xs">
+                        {localNodeConfig.price_amount}/{localNodeConfig.price_period === 'year' ? 'yr' : 'mo'}
+                      </span>
+                    )}
+                    {localNodeConfig.tip_badge && (
+                      <span className="px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-xs">
+                        {localNodeConfig.tip_badge === 'cn3-opt' ? '三网优化' :
+                         localNodeConfig.tip_badge === 'cn3-gia' ? '三网 GIA' :
+                         localNodeConfig.tip_badge === 'big-disk' ? '大盘鸡' :
+                         localNodeConfig.tip_badge === 'perf' ? '性能机' :
+                         localNodeConfig.tip_badge === 'landing' ? '落地机' :
+                         localNodeConfig.tip_badge === 'dufu' ? '杜甫' :
+                         localNodeConfig.tip_badge}
                       </span>
                     )}
                   </div>
@@ -1170,7 +1814,75 @@ export default function Settings() {
                       placeholder="e.g., AWS, Vultr, Self-hosted"
                     />
                   </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Tip Badge</label>
+                    <select
+                      value={localNodeConfig.tip_badge}
+                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, tip_badge: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                    >
+                      <option value="">Auto (from tag)</option>
+                      <option value="cn3-opt">三网优化</option>
+                      <option value="cn3-gia">三网 GIA</option>
+                      <option value="big-disk">大盘鸡</option>
+                      <option value="perf">性能机</option>
+                      <option value="landing">落地机</option>
+                      <option value="dufu">杜甫</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Group</label>
+                    <select
+                      value={localNodeConfig.group_id}
+                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, group_id: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                    >
+                      <option value="">No Group</option>
+                      {groups.map(g => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+                
+                {/* Extended Metadata Section */}
+                <div className="pt-4 border-t border-emerald-500/10 mb-4">
+                  <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">Extended Metadata</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Price Amount</label>
+                      <input
+                        type="text"
+                        value={localNodeConfig.price_amount}
+                        onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, price_amount: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                        placeholder="e.g., $89.99"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Price Period</label>
+                      <select
+                        value={localNodeConfig.price_period}
+                        onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, price_period: e.target.value as 'month' | 'year' })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      >
+                        <option value="month">Monthly</option>
+                        <option value="year">Yearly</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Purchase Date</label>
+                      <input
+                        type="date"
+                        value={localNodeConfig.purchase_date}
+                        onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, purchase_date: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      />
+                      <p className="text-xs text-gray-600 mt-1">Remaining value will be calculated automatically</p>
+                    </div>
+                  </div>
+                </div>
+                
                 <div className="flex justify-end">
                   <button
                     onClick={saveLocalNodeConfig}
@@ -1339,6 +2051,19 @@ export default function Settings() {
                             <option value="dufu">杜甫</option>
                           </select>
                         </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Group</label>
+                          <select
+                            value={editForm.group_id}
+                            onChange={(e) => setEditForm({ ...editForm, group_id: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
+                          >
+                            <option value="">No Group</option>
+                            {groups.map(g => (
+                              <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
                       
                       {/* Extended Metadata Section */}
@@ -1387,6 +2112,7 @@ export default function Settings() {
                               location: '', 
                               provider: '', 
                               tag: '',
+                              group_id: '',
                               price_amount: '',
                               price_period: 'month',
                               purchase_date: '',

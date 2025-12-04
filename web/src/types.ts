@@ -92,6 +92,13 @@ export interface PingTarget {
   status: string;
 }
 
+// Server Groups
+export interface ServerGroup {
+  id: string;
+  name: string;
+  sort_order: number;
+}
+
 // Site Settings
 export interface SiteSettings {
   site_name: string;

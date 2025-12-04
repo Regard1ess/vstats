@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import ServerDetail from './pages/ServerDetail';
 import Login from './pages/Login';
 import Settings from './pages/Settings';
+import OAuthCallback from './pages/OAuthCallback';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Route path="/server/:id" element={<ServerDetail />} />
             <Route path="/login" element={<Login />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/oauth-callback" element={<OAuthCallback />} />
           </Routes>
           <ToastContainer />
         </BrowserRouter>

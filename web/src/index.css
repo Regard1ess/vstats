@@ -2024,3 +2024,263 @@ button:active {
 .light-theme .hover\:bg-white\/20:hover {
   background-color: rgba(0, 0, 0, 0.15);
 }
+
+/* ========================================
+   Compact Table View Styles
+   ======================================== */
+:root {
+  --compact-bar-ok: #10b981;
+  --compact-bar-warn: #f59e0b;
+  --compact-bar-bad: #ef4444;
+}
+
+.vps-compact-table {
+  border-radius: 16px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* Table Header */
+.vps-compact-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr 1.5fr 1fr 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.vps-compact-header--light {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-muted-light);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.vps-compact-header--dark {
+  background: rgba(255, 255, 255, 0.03);
+  color: #6b7280;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.vps-compact-body {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Table Row */
+.vps-compact-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.2fr 1.5fr 1fr 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  border-bottom: 1px solid;
+}
+
+.vps-compact-row--light {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+.vps-compact-row--dark {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.vps-compact-row--light:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.vps-compact-row--dark:hover {
+  background: rgba(30, 41, 59, 0.6);
+}
+
+.vps-compact-row:last-child {
+  border-bottom: none;
+}
+
+/* Columns */
+.vps-compact-col {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.vps-compact-col--node {
+  gap: 0.625rem;
+}
+
+.vps-compact-col--type,
+.vps-compact-col--uptime {
+  font-size: 12px;
+}
+
+.vps-compact-col--network,
+.vps-compact-col--traffic {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  font-size: 11px;
+  font-family: ui-monospace, monospace;
+}
+
+.vps-compact-col--cpu,
+.vps-compact-col--mem,
+.vps-compact-col--hdd {
+  gap: 0.5rem;
+}
+
+/* Status indicator */
+.vps-compact-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.vps-compact-status.is-online {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.5);
+}
+
+.vps-compact-status.is-offline {
+  background: #6b7280;
+}
+
+/* Node info */
+.vps-compact-node-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.vps-compact-node-name {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.vps-compact-node-name--light {
+  color: var(--text-main-light);
+}
+
+.vps-compact-node-name--dark {
+  color: #e5e7eb;
+}
+
+.vps-compact-node-location {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+}
+
+.vps-compact-node-location--light {
+  color: var(--text-muted-light);
+}
+
+.vps-compact-node-location--dark {
+  color: #6b7280;
+}
+
+/* Text colors */
+.vps-compact-text--light {
+  color: var(--text-main-light);
+}
+
+.vps-compact-text--dark {
+  color: #9ca3af;
+}
+
+/* Progress meter */
+.vps-compact-meter {
+  width: 50px;
+  height: 18px;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.vps-compact-meter--light {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.vps-compact-meter--dark {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.vps-compact-meter-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.vps-compact-meter-text {
+  font-size: 11px;
+  font-weight: 500;
+  font-family: ui-monospace, monospace;
+  min-width: 32px;
+}
+
+.vps-compact-meter-text--light {
+  color: var(--text-main-light);
+}
+
+.vps-compact-meter-text--dark {
+  color: #e5e7eb;
+}
+
+/* Responsive: hide some columns on smaller screens */
+@media (max-width: 1200px) {
+  .vps-compact-header,
+  .vps-compact-row {
+    grid-template-columns: 2fr 1fr 1fr 1.2fr 1fr 1fr 1fr;
+  }
+  .vps-compact-col--traffic {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .vps-compact-header,
+  .vps-compact-row {
+    grid-template-columns: 2fr 1fr 1.2fr 1fr 1fr 1fr;
+  }
+  .vps-compact-col--type {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .vps-compact-header {
+    display: none;
+  }
+  .vps-compact-row {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .vps-compact-col {
+    justify-content: space-between;
+  }
+  .vps-compact-col--node {
+    border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+    padding-bottom: 0.75rem;
+  }
+  .vps-compact-col--uptime,
+  .vps-compact-col--network {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+  .vps-compact-col--network::before { content: 'Network: '; opacity: 0.5; }
+  .vps-compact-col--uptime::before { content: 'Uptime: '; opacity: 0.5; }
+  .vps-compact-col--cpu::before { content: 'CPU: '; opacity: 0.5; font-size: 10px; }
+  .vps-compact-col--mem::before { content: 'MEM: '; opacity: 0.5; font-size: 10px; }
+  .vps-compact-col--hdd::before { content: 'HDD: '; opacity: 0.5; font-size: 10px; }
+}

@@ -27,6 +27,7 @@ type LocalNodeConfig struct {
 	Location     string `json:"location"`
 	Provider     string `json:"provider"`
 	Tag          string `json:"tag"`
+	GroupID      string `json:"group_id,omitempty"`
 	PriceAmount  string `json:"price_amount,omitempty"`
 	PricePeriod  string `json:"price_period,omitempty"`
 	PurchaseDate string `json:"purchase_date,omitempty"`
@@ -54,6 +55,33 @@ type ProbeSettings struct {
 	PingTargets []PingTargetConfig `json:"ping_targets"`
 }
 
+// OAuth 2.0 Configuration
+type OAuthProvider struct {
+	Enabled      bool     `json:"enabled"`
+	ClientID     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret"`
+	AllowedUsers []string `json:"allowed_users,omitempty"` // GitHub usernames or Google emails
+}
+
+type OAuthConfig struct {
+	// Use centralized OAuth proxy (vstats.zsoft.cc)
+	// When enabled, no need to configure individual OAuth apps
+	UseCentralized bool `json:"use_centralized"`
+	
+	// Allowed users for centralized OAuth (GitHub usernames or Google emails)
+	AllowedUsers []string `json:"allowed_users,omitempty"`
+	
+	// Self-hosted OAuth configuration (optional, for advanced users)
+	GitHub *OAuthProvider `json:"github,omitempty"`
+	Google *OAuthProvider `json:"google,omitempty"`
+}
+
+type ServerGroup struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	SortOrder int    `json:"sort_order"`
+}
+
 type RemoteServer struct {
 	ID           string `json:"id"`
 	Name         string `json:"name"`
@@ -64,6 +92,7 @@ type RemoteServer struct {
 	Token        string `json:"token"`
 	Version      string `json:"version"`
 	IP           string `json:"ip"`
+	GroupID      string `json:"group_id,omitempty"`
 	PriceAmount  string `json:"price_amount,omitempty"`
 	PricePeriod  string `json:"price_period,omitempty"`
 	PurchaseDate string `json:"purchase_date,omitempty"`
@@ -75,9 +104,11 @@ type AppConfig struct {
 	JWTSecret         string          `json:"jwt_secret"`
 	Port              string          `json:"port,omitempty"`
 	Servers           []RemoteServer  `json:"servers"`
+	Groups            []ServerGroup   `json:"groups,omitempty"`
 	SiteSettings      SiteSettings    `json:"site_settings"`
 	LocalNode         LocalNodeConfig `json:"local_node"`
 	ProbeSettings     ProbeSettings   `json:"probe_settings"`
+	OAuth             *OAuthConfig    `json:"oauth,omitempty"`
 }
 
 func getExeDir() string {
@@ -136,6 +167,7 @@ func NewAppConfigWithRandomPassword() (*AppConfig, string) {
 		AdminPasswordHash: string(hash),
 		JWTSecret:         GenerateRandomString(64),
 		Servers:           []RemoteServer{},
+		Groups:            []ServerGroup{},
 		SiteSettings: SiteSettings{
 			SiteName:        "vStats Dashboard",
 			SiteDescription: "Real-time Server Monitoring",

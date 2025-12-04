@@ -131,6 +131,54 @@ type ChangePasswordRequest struct {
 }
 
 // ============================================================================
+// OAuth Types
+// ============================================================================
+
+type OAuthStateData struct {
+	Provider  string `json:"provider"`
+	State     string `json:"state"`
+	CreatedAt int64  `json:"created_at"`
+}
+
+type GitHubUser struct {
+	ID        int    `json:"id"`
+	Login     string `json:"login"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+type GitHubTokenResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	Scope       string `json:"scope"`
+}
+
+type GoogleTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	TokenType    string `json:"token_type"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token,omitempty"`
+	IDToken      string `json:"id_token,omitempty"`
+}
+
+type GoogleUserInfo struct {
+	ID            string `json:"id"`
+	Email         string `json:"email"`
+	VerifiedEmail bool   `json:"verified_email"`
+	Name          string `json:"name"`
+	Picture       string `json:"picture"`
+}
+
+type OAuthLoginResponse struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Provider  string    `json:"provider"`
+	Username  string    `json:"username"`
+}
+
+// ============================================================================
 // Server Management Types
 // ============================================================================
 
@@ -140,6 +188,7 @@ type AddServerRequest struct {
 	Location     string `json:"location"`
 	Provider     string `json:"provider"`
 	Tag          string `json:"tag"`
+	GroupID      string `json:"group_id,omitempty"`
 	PriceAmount  string `json:"price_amount,omitempty"`
 	PricePeriod  string `json:"price_period,omitempty"`
 	PurchaseDate string `json:"purchase_date,omitempty"`
@@ -151,10 +200,25 @@ type UpdateServerRequest struct {
 	Location     *string `json:"location,omitempty"`
 	Provider     *string `json:"provider,omitempty"`
 	Tag          *string `json:"tag,omitempty"`
+	GroupID      *string `json:"group_id,omitempty"`
 	PriceAmount  *string `json:"price_amount,omitempty"`
 	PricePeriod  *string `json:"price_period,omitempty"`
 	PurchaseDate *string `json:"purchase_date,omitempty"`
 	TipBadge     *string `json:"tip_badge,omitempty"`
+}
+
+// ============================================================================
+// Group Management Types
+// ============================================================================
+
+type AddGroupRequest struct {
+	Name      string `json:"name"`
+	SortOrder int    `json:"sort_order"`
+}
+
+type UpdateGroupRequest struct {
+	Name      *string `json:"name,omitempty"`
+	SortOrder *int    `json:"sort_order,omitempty"`
 }
 
 type AgentRegisterRequest struct {
@@ -214,6 +278,7 @@ type AgentMetricsData struct {
 type DashboardMessage struct {
 	Type         string                `json:"type"`
 	Servers      []ServerMetricsUpdate `json:"servers"`
+	Groups       []ServerGroup         `json:"groups,omitempty"`
 	SiteSettings *SiteSettings         `json:"site_settings,omitempty"`
 }
 
@@ -223,6 +288,7 @@ type ServerMetricsUpdate struct {
 	Location     string         `json:"location"`
 	Provider     string         `json:"provider"`
 	Tag          string         `json:"tag"`
+	GroupID      string         `json:"group_id,omitempty"`
 	Version      string         `json:"version"`
 	IP           string         `json:"ip"`
 	Online       bool           `json:"online"`

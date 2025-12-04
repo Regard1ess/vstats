@@ -111,9 +111,18 @@ func main() {
 		state.GetHistory(c, db)
 	})
 	r.GET("/api/servers", state.GetServers)
+	r.GET("/api/groups", state.GetGroups)
 	r.GET("/api/settings/site", state.GetSiteSettings)
 	r.POST("/api/auth/login", state.Login)
 	r.GET("/api/auth/verify", AuthMiddleware(), state.VerifyToken)
+
+	// OAuth 2.0 routes (public)
+	r.GET("/api/auth/oauth/providers", state.GetOAuthProviders)
+	r.GET("/api/auth/oauth/github", state.GitHubOAuthStart)
+	r.GET("/api/auth/oauth/github/callback", state.GitHubOAuthCallback)
+	r.GET("/api/auth/oauth/google", state.GoogleOAuthStart)
+	r.GET("/api/auth/oauth/google/callback", state.GoogleOAuthCallback)
+	r.GET("/api/auth/oauth/proxy/callback", state.ProxyOAuthCallback) // Centralized OAuth callback
 	r.GET("/api/install-command", AuthMiddleware(), state.GetInstallCommand)
 	r.GET("/api/version", GetServerVersion)
 	r.GET("/version", GetServerVersion)
@@ -141,6 +150,14 @@ func main() {
 		protected.GET("/api/settings/probe", state.GetProbeSettings)
 		protected.PUT("/api/settings/probe", state.UpdateProbeSettings)
 		protected.POST("/api/server/upgrade", UpgradeServer)
+		// OAuth settings (admin only)
+		protected.GET("/api/settings/oauth", state.GetOAuthSettings)
+		protected.PUT("/api/settings/oauth", state.UpdateOAuthSettings)
+		// Group management
+		protected.GET("/api/groups", state.GetGroups)
+		protected.POST("/api/groups", state.AddGroup)
+		protected.PUT("/api/groups/:id", state.UpdateGroup)
+		protected.DELETE("/api/groups/:id", state.DeleteGroup)
 	}
 
 	// Static file serving

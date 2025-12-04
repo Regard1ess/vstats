@@ -5,10 +5,21 @@ import { getOsIcon, getProviderIcon } from '../components/Icons';
 import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUtils';
 import type { HistoryPoint, HistoryResponse, PingHistoryTarget } from '../types';
 
-const FLAGS: Record<string, string> = {
-  'CN': '🇨🇳', 'HK': '🇭🇰', 'TW': '🇹🇼', 'JP': '🇯🇵', 'KR': '🇰🇷',
-  'SG': '🇸🇬', 'US': '🇺🇸', 'DE': '🇩🇪', 'UK': '🇬🇧', 'FR': '🇫🇷',
-  'NL': '🇳🇱', 'RU': '🇷🇺', 'AU': '🇦🇺', 'CA': '🇨🇦', 'IN': '🇮🇳',
+// Convert ISO 3166-1 alpha-2 country code to flag emoji
+// Each letter becomes a regional indicator symbol (A=🇦, B=🇧, etc.)
+const getFlag = (code: string): string => {
+  if (!code || code.length !== 2) return '🌍';
+  const upper = code.toUpperCase();
+  // Regional indicator symbols start at 0x1F1E6 for 'A'
+  const offset = 0x1F1E6 - 65; // 65 is char code for 'A'
+  try {
+    return String.fromCodePoint(
+      upper.charCodeAt(0) + offset,
+      upper.charCodeAt(1) + offset
+    );
+  } catch {
+    return '🌍';
+  }
 };
 
 function StatCard({ label, value, subValue, color = 'gray' }: { label: string; value: string; subValue?: string; color?: string }) {
@@ -632,7 +643,7 @@ export default function ServerDetail() {
   const ProviderIcon = config.provider ? getProviderIcon(config.provider) : null;
   const providerLogo = config.provider ? getProviderLogo(config.provider) : null;
   const distributionLogo = getDistributionLogo(metrics.os.name);
-  const flag = FLAGS[config.location || ''] || '🌍';
+  const flag = getFlag(config.location || '');
 
   return (
     <div className={`min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto ${showContent ? 'animate-slideUp' : 'opacity-0'}`}>

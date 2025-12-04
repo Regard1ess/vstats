@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import type { SystemMetrics, SiteSettings } from '../types';
+import type { SystemMetrics, SiteSettings, ServerGroup } from '../types';
 
 interface NetworkSpeed {
   rx_sec: number;
@@ -13,6 +13,7 @@ export interface ServerConfig {
   location?: string;
   provider?: string;
   tag?: string;
+  group_id?: string;
   version?: string;
   // Extended metadata
   price?: {
@@ -39,6 +40,7 @@ export type LoadingState = 'idle' | 'loading' | 'ready' | 'error';
 interface DashboardMessage {
   type: string;
   servers: ServerMetricsUpdate[];
+  groups?: ServerGroup[];
   site_settings?: SiteSettings;
 }
 
@@ -72,6 +74,7 @@ interface ServerMetricsUpdate {
   location: string;
   provider: string;
   tag?: string;
+  group_id?: string;
   version?: string;
   online: boolean;
   metrics: SystemMetrics | null;
@@ -119,6 +122,7 @@ const saveCachedMetrics = (metricsMap: Map<string, SystemMetrics>) => {
 
 export function useServerManager() {
   const [servers, setServers] = useState<ServerState[]>([]);
+  const [_groups, setGroups] = useState<ServerGroup[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>(defaultSiteSettings);
   const [loadingState, setLoadingState] = useState<LoadingState>('loading');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -201,6 +205,11 @@ export function useServerManager() {
                 setSiteSettings(fullData.site_settings);
               }
               
+              // Update groups if provided
+              if (fullData.groups) {
+                setGroups(fullData.groups);
+              }
+              
               // Mark initial data as received
               if (!initialDataReceived.current) {
                 initialDataReceived.current = true;
@@ -264,6 +273,7 @@ export function useServerManager() {
                     location: serverUpdate.location,
                     provider: serverUpdate.provider,
                     tag: serverUpdate.tag,
+                    group_id: serverUpdate.group_id,
                     version: serverUpdate.version || serverUpdate.metrics?.version,
                     price: serverUpdate.price_amount ? {
                       amount: serverUpdate.price_amount,
@@ -358,7 +368,7 @@ export function useServerManager() {
     return servers.find(s => s.config.id === id);
   }, [servers]);
 
-  return { servers, siteSettings, loadingState, isInitialLoad, getServerById };
+  return { servers, groups: _groups, siteSettings, loadingState, isInitialLoad, getServerById };
 }
 
 export function formatBytes(bytes: number): string {

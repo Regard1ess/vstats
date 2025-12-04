@@ -6,12 +6,22 @@ import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUt
 import { useTheme } from '../context/ThemeContext';
 import type { SocialLink } from '../types';
 
-type ViewMode = 'list' | 'grid';
+type ViewMode = 'list' | 'grid' | 'compact';
 
-const FLAGS: Record<string, string> = {
-  'CN': '🇨🇳', 'HK': '🇭🇰', 'TW': '🇹🇼', 'JP': '🇯🇵', 'KR': '🇰🇷',
-  'SG': '🇸🇬', 'US': '🇺🇸', 'DE': '🇩🇪', 'UK': '🇬🇧', 'FR': '🇫🇷',
-  'NL': '🇳🇱', 'RU': '🇷🇺', 'AU': '🇦🇺', 'CA': '🇨🇦', 'IN': '🇮🇳',
+// Convert ISO 3166-1 alpha-2 country code to flag emoji
+// Each letter becomes a regional indicator symbol (A=🇦, B=🇧, etc.)
+const getFlag = (code: string | undefined): string | null => {
+  if (!code || code.length !== 2) return null;
+  const upper = code.toUpperCase();
+  const offset = 0x1F1E6 - 65; // 65 is char code for 'A'
+  try {
+    return String.fromCodePoint(
+      upper.charCodeAt(0) + offset,
+      upper.charCodeAt(1) + offset
+    );
+  } catch {
+    return null;
+  }
 };
 
 // Social Icons Component
@@ -179,9 +189,15 @@ const getShortCpuBrand = (brand: string) => {
 };
 
 const formatDiskSize = (bytes: number) => {
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1000) return `${(gb / 1024).toFixed(0)}T`;
-  return `${gb.toFixed(0)}G`;
+  const kb = 1024;
+  const mb = kb * 1024;
+  const gb = mb * 1024;
+  const tb = gb * 1024;
+  
+  if (bytes >= tb) return `${(bytes / tb).toFixed(0)}T`;
+  if (bytes >= gb) return `${(bytes / gb).toFixed(0)}G`;
+  if (bytes >= mb) return `${(bytes / mb).toFixed(0)}M`;
+  return `${(bytes / kb).toFixed(0)}K`;
 };
 
 const getResourceState = (value: number, thresholds: [number, number]): 'ok' | 'warn' | 'bad' => {
@@ -198,7 +214,7 @@ function VpsGridCard({ server, onClick, isDark }: { server: ServerState; onClick
   const OsIcon = metrics ? getOsIcon(metrics.os.name) : null;
   const distributionLogo = metrics ? getDistributionLogo(metrics.os.name) : null;
   const providerLogo = config.provider ? getProviderLogo(config.provider) : null;
-  const flag = config.location ? FLAGS[config.location] : null;
+  const flag = getFlag(config.location);
 
   if (!metrics) {
     return (
@@ -434,7 +450,7 @@ function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick
   const OsIcon = metrics ? getOsIcon(metrics.os.name) : null;
   const providerLogo = config.provider ? getProviderLogo(config.provider) : null;
   const distributionLogo = metrics ? getDistributionLogo(metrics.os.name) : null;
-  const flag = config.location ? FLAGS[config.location] : null;
+  const flag = getFlag(config.location);
 
   if (!metrics) {
     return (
@@ -650,6 +666,203 @@ function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick
   );
 }
 
+// Format traffic (total bytes transferred)
+const formatTraffic = (bytes: number): string => {
+  const kb = 1024;
+  const mb = kb * 1024;
+  const gb = mb * 1024;
+  const tb = gb * 1024;
+  
+  if (bytes >= tb) return `${(bytes / tb).toFixed(2)}T`;
+  if (bytes >= gb) return `${(bytes / gb).toFixed(2)}G`;
+  if (bytes >= mb) return `${(bytes / mb).toFixed(0)}M`;
+  if (bytes >= kb) return `${(bytes / kb).toFixed(0)}K`;
+  return `${bytes}B`;
+};
+
+// Format uptime as days
+const formatUptimeDays = (seconds: number): string => {
+  const days = Math.floor(seconds / 86400);
+  return `${days} Days`;
+};
+
+// VPS Compact Table Header
+function VpsCompactTableHeader({ isDark }: { isDark: boolean }) {
+  const themeClass = isDark ? 'dark' : 'light';
+  return (
+    <div className={`vps-compact-header vps-compact-header--${themeClass}`}>
+      <div className="vps-compact-col vps-compact-col--node">NODE</div>
+      <div className="vps-compact-col vps-compact-col--type">TYPE</div>
+      <div className="vps-compact-col vps-compact-col--uptime">UPTIME</div>
+      <div className="vps-compact-col vps-compact-col--network">NETWORK</div>
+      <div className="vps-compact-col vps-compact-col--traffic">TRAFFIC</div>
+      <div className="vps-compact-col vps-compact-col--cpu">CPU</div>
+      <div className="vps-compact-col vps-compact-col--mem">MEM</div>
+      <div className="vps-compact-col vps-compact-col--hdd">HDD</div>
+    </div>
+  );
+}
+
+// VPS Compact Row Component
+function VpsCompactCard({ server, onClick, isDark }: { 
+  server: ServerState; 
+  onClick: () => void; 
+  isDark: boolean;
+}) {
+  const { metrics, speed, isConnected, config } = server;
+  const themeClass = isDark ? 'dark' : 'light';
+  
+  const flag = getFlag(config.location);
+
+  if (!metrics) {
+    return (
+      <div className={`vps-compact-row vps-compact-row--${themeClass} animate-pulse`} onClick={onClick}>
+        <div className="vps-compact-col vps-compact-col--node">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 skeleton-bg rounded" />
+            <div className="h-3 skeleton-bg rounded w-20" />
+          </div>
+        </div>
+        <div className="vps-compact-col vps-compact-col--type">
+          <div className="h-3 skeleton-bg rounded w-16" />
+        </div>
+        <div className="vps-compact-col vps-compact-col--uptime">
+          <div className="h-3 skeleton-bg rounded w-14" />
+        </div>
+        <div className="vps-compact-col vps-compact-col--network">
+          <div className="h-3 skeleton-bg rounded w-20" />
+        </div>
+        <div className="vps-compact-col vps-compact-col--traffic">
+          <div className="h-3 skeleton-bg rounded w-24" />
+        </div>
+        <div className="vps-compact-col vps-compact-col--cpu">
+          <div className="h-3 skeleton-bg rounded w-12" />
+        </div>
+        <div className="vps-compact-col vps-compact-col--mem">
+          <div className="h-3 skeleton-bg rounded w-12" />
+        </div>
+        <div className="vps-compact-col vps-compact-col--hdd">
+          <div className="h-3 skeleton-bg rounded w-12" />
+        </div>
+      </div>
+    );
+  }
+
+  const diskUsage = metrics.disks?.[0]?.usage_percent || 0;
+  
+  // Get virtualization type from config tag or default
+  const getVirtType = () => {
+    if (config.tag) return config.tag;
+    // Check kernel for hints about virtualization
+    const kernel = metrics.os.kernel?.toLowerCase() || '';
+    if (kernel.includes('kvm')) return 'KVM';
+    if (kernel.includes('vmware')) return 'VMware';
+    if (kernel.includes('xen')) return 'Xen';
+    if (kernel.includes('hyper-v')) return 'Hyper-V';
+    if (kernel.includes('lxc')) return 'LXC';
+    if (kernel.includes('openvz')) return 'OpenVZ';
+    return 'VPS';
+  };
+
+  // Calculate total traffic from network metrics
+  const totalTxTraffic = metrics.network?.total_tx || 0;
+  const totalRxTraffic = metrics.network?.total_rx || 0;
+
+  const getBarColor = (value: number, thresholds: [number, number]) => {
+    if (value > thresholds[1]) return 'var(--compact-bar-bad)';
+    if (value > thresholds[0]) return 'var(--compact-bar-warn)';
+    return 'var(--compact-bar-ok)';
+  };
+
+  return (
+    <div className={`vps-compact-row vps-compact-row--${themeClass}`} onClick={onClick}>
+      {/* NODE */}
+      <div className="vps-compact-col vps-compact-col--node">
+        <span className={`vps-compact-status ${isConnected ? 'is-online' : 'is-offline'}`} />
+        <div className="vps-compact-node-info">
+          <span className={`vps-compact-node-name vps-compact-node-name--${themeClass}`}>
+            {config.name}
+          </span>
+          <span className={`vps-compact-node-location vps-compact-node-location--${themeClass}`}>
+            {flag && <span className="text-base mr-1">{flag}</span>}
+            {config.location || 'Unknown'}
+          </span>
+        </div>
+      </div>
+
+      {/* TYPE */}
+      <div className={`vps-compact-col vps-compact-col--type vps-compact-text--${themeClass}`}>
+        {getVirtType()}
+      </div>
+
+      {/* UPTIME */}
+      <div className={`vps-compact-col vps-compact-col--uptime vps-compact-text--${themeClass}`}>
+        {formatUptimeDays(metrics.uptime)}
+      </div>
+
+      {/* NETWORK */}
+      <div className={`vps-compact-col vps-compact-col--network vps-compact-text--${themeClass}`}>
+        <span>{formatSpeed(speed.tx_sec)}↑</span>
+        <span>{formatSpeed(speed.rx_sec)}↓</span>
+      </div>
+
+      {/* TRAFFIC */}
+      <div className={`vps-compact-col vps-compact-col--traffic vps-compact-text--${themeClass}`}>
+        <span>{formatTraffic(totalTxTraffic)}↑</span>
+        <span>{formatTraffic(totalRxTraffic)}↓</span>
+      </div>
+
+      {/* CPU */}
+      <div className="vps-compact-col vps-compact-col--cpu">
+        <div className={`vps-compact-meter vps-compact-meter--${themeClass}`}>
+          <div 
+            className="vps-compact-meter-fill"
+            style={{ 
+              width: `${Math.min(100, metrics.cpu.usage)}%`,
+              backgroundColor: getBarColor(metrics.cpu.usage, [50, 80])
+            }}
+          />
+        </div>
+        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeClass}`}>
+          {Math.round(metrics.cpu.usage)}%
+        </span>
+      </div>
+
+      {/* MEM */}
+      <div className="vps-compact-col vps-compact-col--mem">
+        <div className={`vps-compact-meter vps-compact-meter--${themeClass}`}>
+          <div 
+            className="vps-compact-meter-fill"
+            style={{ 
+              width: `${Math.min(100, metrics.memory.usage_percent)}%`,
+              backgroundColor: getBarColor(metrics.memory.usage_percent, [50, 80])
+            }}
+          />
+        </div>
+        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeClass}`}>
+          {Math.round(metrics.memory.usage_percent)}%
+        </span>
+      </div>
+
+      {/* HDD */}
+      <div className="vps-compact-col vps-compact-col--hdd">
+        <div className={`vps-compact-meter vps-compact-meter--${themeClass}`}>
+          <div 
+            className="vps-compact-meter-fill"
+            style={{ 
+              width: `${Math.min(100, diskUsage)}%`,
+              backgroundColor: getBarColor(diskUsage, [70, 90])
+            }}
+          />
+        </div>
+        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeClass}`}>
+          {Math.round(diskUsage)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // Loading skeletons
 function VpsListCardSkeleton({ isDark }: { isDark: boolean }) {
   const themeClass = isDark ? 'dark' : 'light';
@@ -713,7 +926,7 @@ function VpsGridCardSkeleton({ isDark }: { isDark: boolean }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { servers, siteSettings, isInitialLoad } = useServerManager();
+  const { servers, groups, siteSettings, isInitialLoad } = useServerManager();
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === 'dark';
   const themeClass = isDark ? 'dark' : 'light';
@@ -739,7 +952,9 @@ export default function Dashboard() {
   }, []);
 
   const toggleViewMode = () => {
-    const newMode = viewMode === 'list' ? 'grid' : 'list';
+    const modes: ViewMode[] = ['grid', 'list', 'compact'];
+    const currentIndex = modes.indexOf(viewMode);
+    const newMode = modes[(currentIndex + 1) % modes.length];
     setViewMode(newMode);
     localStorage.setItem('vstats-view-mode', newMode);
   };
@@ -749,6 +964,31 @@ export default function Dashboard() {
   const totalBandwidthTx = servers.reduce((acc, s) => acc + s.speed.tx_sec, 0);
 
   const showSkeleton = isInitialLoad && servers.length === 0;
+
+  // Organize servers by group
+  const sortedGroups = [...groups].sort((a, b) => a.sort_order - b.sort_order);
+  const serversByGroup = new Map<string | null, typeof servers>();
+  
+  // Initialize groups
+  for (const group of sortedGroups) {
+    serversByGroup.set(group.id, []);
+  }
+  serversByGroup.set(null, []); // Ungrouped
+  
+  // Distribute servers to groups
+  for (const server of servers) {
+    const groupId = server.config.group_id || null;
+    if (serversByGroup.has(groupId)) {
+      serversByGroup.get(groupId)!.push(server);
+    } else {
+      // Group doesn't exist (shouldn't happen normally)
+      serversByGroup.get(null)!.push(server);
+    }
+  }
+  
+  // Check if we have any groups with servers
+  const hasGroupedServers = sortedGroups.some(g => (serversByGroup.get(g.id)?.length || 0) > 0);
+  const ungroupedServers = serversByGroup.get(null) || [];
 
   return (
     <div className={`vps-page vps-page--${themeClass}`}>
@@ -788,15 +1028,19 @@ export default function Dashboard() {
             <button
               onClick={toggleViewMode}
               className={`vps-btn ${isDark ? 'vps-btn-outline-dark' : 'vps-btn-outline-light'} p-2.5`}
-              title={`Switch to ${viewMode === 'list' ? 'grid' : 'list'} view`}
+              title={`切换视图 (${viewMode === 'grid' ? '网格' : viewMode === 'list' ? '列表' : '紧凑'})`}
             >
-              {viewMode === 'list' ? (
+              {viewMode === 'grid' ? (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
-              ) : (
+              ) : viewMode === 'list' ? (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
                 </svg>
               )}
             </button>
@@ -861,11 +1105,194 @@ export default function Dashboard() {
               <div className="flex flex-col gap-3">
                 {[1, 2, 3].map(i => <VpsListCardSkeleton key={i} isDark={isDark} />)}
               </div>
+            ) : viewMode === 'compact' ? (
+              <div className="vps-compact-table">
+                <VpsCompactTableHeader isDark={isDark} />
+                <div className="vps-compact-body">
+                  {[1, 2, 3, 4, 5].map(i => (
+                    <div key={i} className={`vps-compact-row vps-compact-row--${themeClass} animate-pulse`}>
+                      <div className="vps-compact-col vps-compact-col--node">
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 skeleton-bg rounded" />
+                          <div className="h-3 skeleton-bg rounded w-20" />
+                        </div>
+                      </div>
+                      <div className="vps-compact-col vps-compact-col--type"><div className="h-3 skeleton-bg rounded w-16" /></div>
+                      <div className="vps-compact-col vps-compact-col--uptime"><div className="h-3 skeleton-bg rounded w-14" /></div>
+                      <div className="vps-compact-col vps-compact-col--network"><div className="h-3 skeleton-bg rounded w-20" /></div>
+                      <div className="vps-compact-col vps-compact-col--traffic"><div className="h-3 skeleton-bg rounded w-24" /></div>
+                      <div className="vps-compact-col vps-compact-col--cpu"><div className="h-3 skeleton-bg rounded w-12" /></div>
+                      <div className="vps-compact-col vps-compact-col--mem"><div className="h-3 skeleton-bg rounded w-12" /></div>
+                      <div className="vps-compact-col vps-compact-col--hdd"><div className="h-3 skeleton-bg rounded w-12" /></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[1, 2, 3, 4].map(i => <VpsGridCardSkeleton key={i} isDark={isDark} />)}
               </div>
             )
+          ) : hasGroupedServers ? (
+            // Display servers grouped by groups
+            <div className="space-y-6">
+              {sortedGroups.map((group) => {
+                const groupServers = serversByGroup.get(group.id) || [];
+                if (groupServers.length === 0) return null;
+                
+                return (
+                  <div key={group.id}>
+                    {/* Group Header */}
+                    <div className={`flex items-center gap-2 mb-3 px-1`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-orange-400' : 'bg-orange-500'}`} />
+                      <span className={`text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                        {group.name}
+                      </span>
+                      <span className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                        ({groupServers.length})
+                      </span>
+                    </div>
+                    
+                    {/* Group Servers */}
+                    {viewMode === 'compact' ? (
+                      <div className="vps-compact-view">
+                        {groupServers.map((server, index) => (
+                          <div 
+                            key={server.config.id}
+                            className="animate-fadeIn"
+                            style={{ animationDelay: `${index * 20}ms` }}
+                          >
+                            <VpsCompactCard 
+                              server={server} 
+                              onClick={() => navigate(`/server/${server.config.id}`)}
+                              isDark={isDark}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : viewMode === 'list' ? (
+                      <div className="vps-list-view">
+                        {groupServers.map((server, index) => (
+                          <div 
+                            key={server.config.id}
+                            className="animate-fadeIn"
+                            style={{ animationDelay: `${index * 30}ms` }}
+                          >
+                            <VpsListCard 
+                              server={server} 
+                              onClick={() => navigate(`/server/${server.config.id}`)}
+                              isDark={isDark}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {groupServers.map((server, index) => (
+                          <div 
+                            key={server.config.id}
+                            className="animate-fadeIn"
+                            style={{ animationDelay: `${index * 30}ms` }}
+                          >
+                            <VpsGridCard 
+                              server={server} 
+                              onClick={() => navigate(`/server/${server.config.id}`)}
+                              isDark={isDark}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              
+              {/* Ungrouped Servers */}
+              {ungroupedServers.length > 0 && (
+                <div>
+                  {/* Ungrouped Header */}
+                  <div className={`flex items-center gap-2 mb-3 px-1`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-gray-500' : 'bg-gray-400'}`} />
+                    <span className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Ungrouped
+                    </span>
+                    <span className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                      ({ungroupedServers.length})
+                    </span>
+                  </div>
+                  
+                  {/* Ungrouped Servers */}
+                  {viewMode === 'compact' ? (
+                    <div className="vps-compact-view">
+                      {ungroupedServers.map((server, index) => (
+                        <div 
+                          key={server.config.id}
+                          className="animate-fadeIn"
+                          style={{ animationDelay: `${index * 20}ms` }}
+                        >
+                          <VpsCompactCard 
+                            server={server} 
+                            onClick={() => navigate(`/server/${server.config.id}`)}
+                            isDark={isDark}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : viewMode === 'list' ? (
+                    <div className="vps-list-view">
+                      {ungroupedServers.map((server, index) => (
+                        <div 
+                          key={server.config.id}
+                          className="animate-fadeIn"
+                          style={{ animationDelay: `${index * 30}ms` }}
+                        >
+                          <VpsListCard 
+                            server={server} 
+                            onClick={() => navigate(`/server/${server.config.id}`)}
+                            isDark={isDark}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {ungroupedServers.map((server, index) => (
+                        <div 
+                          key={server.config.id}
+                          className="animate-fadeIn"
+                          style={{ animationDelay: `${index * 30}ms` }}
+                        >
+                          <VpsGridCard 
+                            server={server} 
+                            onClick={() => navigate(`/server/${server.config.id}`)}
+                            isDark={isDark}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : viewMode === 'compact' ? (
+            <div className="vps-compact-table">
+              <VpsCompactTableHeader isDark={isDark} />
+              <div className="vps-compact-body">
+                {servers.map((server, index) => (
+                  <div 
+                    key={server.config.id}
+                    className="animate-fadeIn"
+                    style={{ animationDelay: `${index * 20}ms` }}
+                  >
+                    <VpsCompactCard 
+                      server={server} 
+                      onClick={() => navigate(`/server/${server.config.id}`)}
+                      isDark={isDark}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : viewMode === 'list' ? (
             <div className="vps-list-view">
               {servers.map((server, index) => (
