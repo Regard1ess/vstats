@@ -12,8 +12,6 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Area,
-  AreaChart,
   Legend,
 } from 'recharts';
 
@@ -191,28 +189,25 @@ function HistoryChart({ serverId }: { serverId: string }) {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  // Single Line Chart Component
+  // Single Line Chart Component (no animation, no fill)
   const SingleLineChart = ({ 
     dataKey, 
     color,
     label,
     formatValue,
     maxValue,
-    showArea = true,
   }: { 
     dataKey: string;
     color: keyof typeof chartColors;
     label: string;
     formatValue: (v: number) => string;
     maxValue?: number;
-    showArea?: boolean;
   }) => {
     const colorSet = chartColors[color];
     const values = sampledData.map(d => d[dataKey as keyof typeof d] as number);
     const avg = values.reduce((a, b) => a + b, 0) / values.length;
     const min = Math.min(...values);
     const max = Math.max(...values);
-    const gradientId = `gradient-${color}-${dataKey}`;
 
     return (
       <div className="relative">
@@ -232,13 +227,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
         </div>
         <div className="h-48 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sampledData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={colorSet.gradient[0]} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={colorSet.gradient[1]} stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
+            <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid 
                 strokeDasharray="3 3" 
                 stroke="rgba(255,255,255,0.05)" 
@@ -271,37 +260,24 @@ function HistoryChart({ serverId }: { serverId: string }) {
                   />
                 }
               />
-              {showArea && (
-                <Area
-                  type="monotone"
-                  dataKey={dataKey}
-                  stroke={colorSet.stroke}
-                  strokeWidth={2}
-                  fill={`url(#${gradientId})`}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
-                  name={label}
-                />
-              )}
-              {!showArea && (
-                <Line
-                  type="monotone"
-                  dataKey={dataKey}
-                  stroke={colorSet.stroke}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
-                  name={label}
-                />
-              )}
-            </AreaChart>
+              <Line
+                type="monotone"
+                dataKey={dataKey}
+                stroke={colorSet.stroke}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
+                name={label}
+                isAnimationActive={false}
+              />
+            </LineChart>
           </ResponsiveContainer>
         </div>
       </div>
     );
   };
 
-  // Multi-line Chart Component for Overview
+  // Multi-line Chart Component for Overview (no animation)
   const MultiLineChart = ({ 
     lines,
     formatValue,
@@ -364,6 +340,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: chartColors[color].stroke, fill: '#1f2937' }}
                 name={label}
+                isAnimationActive={false}
               />
             ))}
           </LineChart>
@@ -372,23 +349,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
     );
   };
 
-  // Network Chart with dual lines
+  // Network Chart with dual lines (no animation, no fill)
   const NetworkChart = () => {
     return (
       <div className="space-y-6">
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sampledData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
-              <defs>
-                <linearGradient id="gradient-tx" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#10b981" stopOpacity={0.05} />
-                </linearGradient>
-                <linearGradient id="gradient-rx" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#06b6d4" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#06b6d4" stopOpacity={0.05} />
-                </linearGradient>
-              </defs>
+            <LineChart data={sampledData} margin={{ top: 5, right: 5, left: -10, bottom: 5 }}>
               <CartesianGrid 
                 strokeDasharray="3 3" 
                 stroke="rgba(255,255,255,0.05)" 
@@ -427,27 +394,27 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 iconSize={8}
                 formatter={(value) => <span className="text-xs text-gray-400">{value}</span>}
               />
-              <Area
+              <Line
                 type="monotone"
                 dataKey="net_tx"
                 stroke="#10b981"
                 strokeWidth={2}
-                fill="url(#gradient-tx)"
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: '#10b981', fill: '#1f2937' }}
                 name="Upload (TX)"
+                isAnimationActive={false}
               />
-              <Area
+              <Line
                 type="monotone"
                 dataKey="net_rx"
                 stroke="#06b6d4"
                 strokeWidth={2}
-                fill="url(#gradient-rx)"
                 dot={false}
                 activeDot={{ r: 4, strokeWidth: 2, stroke: '#06b6d4', fill: '#1f2937' }}
                 name="Download (RX)"
+                isAnimationActive={false}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
         <div className="grid grid-cols-2 gap-4 text-center">
@@ -642,104 +609,178 @@ function HistoryChart({ serverId }: { serverId: string }) {
         
         // Check if we have detailed ping target data
         if (pingTargets.length > 0) {
+          // Merge all ping targets into one chart
+          const sampleRate = Math.max(1, Math.floor((pingTargets[0]?.data?.length || 0) / 120));
+          
+          // Create combined chart data with all targets
+          const combinedPingData = pingTargets[0]?.data
+            .filter((_, i) => i % sampleRate === 0)
+            .map((d, i) => {
+              const point: Record<string, number | string | null> = {
+                index: i,
+                timestamp: d.timestamp,
+                formattedTime: formatTimeForChart(d.timestamp),
+              };
+              // Add each target's latency to the point
+              pingTargets.forEach((target, targetIdx) => {
+                const targetData = target.data.filter((_, j) => j % sampleRate === 0)[i];
+                point[`ping_${targetIdx}`] = targetData?.latency_ms ?? null;
+              });
+              return point;
+            }) || [];
+
+          // Calculate stats for each target
+          const targetStats = pingTargets.map(target => {
+            const validData = target.data.filter(d => d.latency_ms !== null);
+            if (validData.length === 0) return { min: 0, avg: 0, max: 0 };
+            const values = validData.map(d => d.latency_ms!);
+            return {
+              min: Math.min(...values),
+              avg: values.reduce((a, b) => a + b, 0) / values.length,
+              max: Math.max(...values),
+            };
+          });
+
+          // Custom tooltip for combined ping chart
+          const PingCombinedTooltip = ({ 
+            active, 
+            payload, 
+            label 
+          }: {
+            active?: boolean;
+            payload?: Array<{ value: number; name: string; color: string; dataKey: string }>;
+            label?: string;
+          }) => {
+            if (!active || !payload?.length) return null;
+            
+            const point = combinedPingData.find(d => d.formattedTime === label);
+            const timeLabel = point ? formatFullTime(point.timestamp as string) : label;
+            
+            return (
+              <div className="bg-gray-900/95 backdrop-blur-sm border border-white/10 rounded-lg p-3 shadow-xl min-w-[180px]">
+                <p className="text-xs text-gray-400 mb-2 font-mono border-b border-white/10 pb-2">
+                  {timeLabel}
+                </p>
+                <div className="space-y-1.5">
+                  {payload.map((entry, index) => {
+                    const targetIdx = parseInt(entry.dataKey.replace('ping_', ''));
+                    const target = pingTargets[targetIdx];
+                    return (
+                      <div key={index} className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: entry.color }}
+                          />
+                          <span className="text-xs text-gray-300">{target?.name || entry.name}</span>
+                        </div>
+                        <span className="text-sm font-mono font-semibold text-white">
+                          {entry.value !== null ? `${entry.value.toFixed(1)}ms` : 'N/A'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          };
+          
           return (
             <div className={`transition-opacity ${opacity}`}>
-              <div className="space-y-6">
+              {/* Stats cards for each target */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                 {pingTargets.map((target, idx) => {
                   const colorKey = pingColorKeys[idx % pingColorKeys.length];
                   const colorSet = chartColors[colorKey];
-                  const validData = target.data.filter(d => d.latency_ms !== null);
-                  if (validData.length === 0) return null;
-                  
-                  const values = validData.map(d => d.latency_ms!);
-                  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-                  const min = Math.min(...values);
-                  const max = Math.max(...values);
-                  
-                  // Sample data for display
-                  const sampleRate = Math.max(1, Math.floor(target.data.length / 120));
-                  const sampledPingData = target.data.filter((_, i) => i % sampleRate === 0).map((d, i) => ({
-                    ...d,
-                    index: i,
-                    formattedTime: formatTimeForChart(d.timestamp),
-                    latency: d.latency_ms ?? 0,
-                  }));
-                  
-                  const gradientId = `gradient-ping-${idx}`;
+                  const stats = targetStats[idx];
                   
                   return (
-                    <div key={target.name} className="p-4 rounded-lg bg-white/[0.02] border border-white/10">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <span 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: colorSet.stroke }}
-                          />
-                          <span className="text-sm font-medium text-white">{target.name}</span>
-                          <span className="text-xs text-gray-500 font-mono">({target.host})</span>
-                        </div>
-                        <div className="flex gap-4 text-xs">
-                          <span className="text-gray-500">min: <span className="text-emerald-400 font-mono">{min.toFixed(1)}ms</span></span>
-                          <span className="text-gray-500">avg: <span style={{ color: colorSet.stroke }} className="font-mono">{avg.toFixed(1)}ms</span></span>
-                          <span className="text-gray-500">max: <span className="text-amber-400 font-mono">{max.toFixed(1)}ms</span></span>
-                        </div>
+                    <div 
+                      key={target.name} 
+                      className="p-3 rounded-lg border"
+                      style={{ 
+                        backgroundColor: `${colorSet.stroke}08`,
+                        borderColor: `${colorSet.stroke}30`
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: colorSet.stroke }}
+                        />
+                        <span className="text-xs font-medium text-white truncate">{target.name}</span>
+                        <span className="text-[10px] text-gray-500 font-mono truncate">({target.host})</span>
                       </div>
-                      <div className="h-40 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={sampledPingData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                            <defs>
-                              <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor={colorSet.gradient[0]} stopOpacity={0.3} />
-                                <stop offset="100%" stopColor={colorSet.gradient[1]} stopOpacity={0.05} />
-                              </linearGradient>
-                            </defs>
-                            <CartesianGrid 
-                              strokeDasharray="3 3" 
-                              stroke="rgba(255,255,255,0.05)" 
-                              vertical={false}
-                            />
-                            <XAxis 
-                              dataKey="formattedTime"
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fill: '#6b7280', fontSize: 10 }}
-                              interval="preserveStartEnd"
-                              minTickGap={50}
-                            />
-                            <YAxis
-                              axisLine={false}
-                              tickLine={false}
-                              tick={{ fill: '#6b7280', fontSize: 10 }}
-                              tickFormatter={v => `${v}ms`}
-                              width={45}
-                            />
-                            <Tooltip
-                              content={
-                                <CustomTooltip 
-                                  formatValue={v => `${v.toFixed(1)} ms`}
-                                  labelFormatter={(label) => {
-                                    const point = sampledPingData.find(d => d.formattedTime === label);
-                                    return point ? formatFullTime(point.timestamp) : label;
-                                  }}
-                                />
-                              }
-                            />
-                            <Area
-                              type="monotone"
-                              dataKey="latency"
-                              stroke={colorSet.stroke}
-                              strokeWidth={2}
-                              fill={`url(#${gradientId})`}
-                              dot={false}
-                              activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
-                              name="Latency"
-                            />
-                          </AreaChart>
-                        </ResponsiveContainer>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-500">
+                          <span className="text-emerald-400 font-mono">{stats.min.toFixed(0)}</span>
+                          <span className="mx-1">/</span>
+                          <span style={{ color: colorSet.stroke }} className="font-mono">{stats.avg.toFixed(0)}</span>
+                          <span className="mx-1">/</span>
+                          <span className="text-amber-400 font-mono">{stats.max.toFixed(0)}</span>
+                          <span className="ml-1 text-gray-600">ms</span>
+                        </span>
                       </div>
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Combined chart */}
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={combinedPingData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                    <CartesianGrid 
+                      strokeDasharray="3 3" 
+                      stroke="rgba(255,255,255,0.05)" 
+                      vertical={false}
+                    />
+                    <XAxis 
+                      dataKey="formattedTime"
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#6b7280', fontSize: 10 }}
+                      interval="preserveStartEnd"
+                      minTickGap={50}
+                    />
+                    <YAxis
+                      axisLine={false}
+                      tickLine={false}
+                      tick={{ fill: '#6b7280', fontSize: 10 }}
+                      tickFormatter={v => `${v}ms`}
+                      width={45}
+                    />
+                    <Tooltip content={<PingCombinedTooltip />} />
+                    <Legend 
+                      verticalAlign="top" 
+                      height={36}
+                      iconType="circle"
+                      iconSize={8}
+                      formatter={(value, entry) => {
+                        const idx = parseInt((entry.dataKey as string).replace('ping_', ''));
+                        return <span className="text-xs text-gray-400">{pingTargets[idx]?.name || value}</span>;
+                      }}
+                    />
+                    {pingTargets.map((target, idx) => {
+                      const colorKey = pingColorKeys[idx % pingColorKeys.length];
+                      const colorSet = chartColors[colorKey];
+                      return (
+                        <Line
+                          key={target.name}
+                          type="monotone"
+                          dataKey={`ping_${idx}`}
+                          stroke={colorSet.stroke}
+                          strokeWidth={2}
+                          dot={false}
+                          activeDot={{ r: 4, strokeWidth: 2, stroke: colorSet.stroke, fill: '#1f2937' }}
+                          name={target.name}
+                          connectNulls={false}
+                          isAnimationActive={false}
+                        />
+                      );
+                    })}
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
           );
@@ -788,13 +829,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
             </div>
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={pingChartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="gradient-ping-avg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#a855f7" stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
+                <LineChart data={pingChartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                   <CartesianGrid 
                     strokeDasharray="3 3" 
                     stroke="rgba(255,255,255,0.05)" 
@@ -826,17 +861,17 @@ function HistoryChart({ serverId }: { serverId: string }) {
                       />
                     }
                   />
-                  <Area
+                  <Line
                     type="monotone"
                     dataKey="ping"
                     stroke="#f43f5e"
                     strokeWidth={2}
-                    fill="url(#gradient-ping-avg)"
                     dot={false}
                     activeDot={{ r: 4, strokeWidth: 2, stroke: '#f43f5e', fill: '#1f2937' }}
                     name="Latency"
+                    isAnimationActive={false}
                   />
-                </AreaChart>
+                </LineChart>
               </ResponsiveContainer>
             </div>
             <div className="mt-6 grid grid-cols-3 gap-4 text-center">

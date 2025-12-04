@@ -205,6 +205,14 @@ export default function Settings() {
   const [addingOption, setAddingOption] = useState<Record<string, boolean>>({});
   const [editingOption, setEditingOption] = useState<{ dimId: string; optId: string } | null>(null);
   const [editOptionName, setEditOptionName] = useState('');
+  
+  // Add/Edit dimension
+  const [showAddDimensionForm, setShowAddDimensionForm] = useState(false);
+  const [newDimension, setNewDimension] = useState({ name: '', key: '', enabled: true });
+  const [addingDimension, setAddingDimension] = useState(false);
+  const [editingDimension, setEditingDimension] = useState<string | null>(null);
+  const [editDimensionName, setEditDimensionName] = useState('');
+  const [deletingDimension, setDeletingDimension] = useState<string | null>(null);
 
   useEffect(() => {
     // Wait for auth check to complete before redirecting
@@ -638,6 +646,109 @@ export default function Settings() {
   // Get count of servers using a specific option
   const getOptionServerCount = (dimId: string, optId: string) => {
     return servers.filter(s => s.group_values?.[dimId] === optId).length;
+  };
+  
+  // Add new dimension
+  const addDimension = async () => {
+    if (!newDimension.name.trim() || !newDimension.key.trim()) return;
+    
+    setAddingDimension(true);
+    try {
+      const res = await fetch('/api/dimensions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: newDimension.name.trim(),
+          key: newDimension.key.trim().toLowerCase().replace(/\s+/g, '_'),
+          enabled: newDimension.enabled,
+          sort_order: dimensions.length
+        })
+      });
+      
+      if (res.ok) {
+        const dimension = await res.json();
+        setDimensions([...dimensions, dimension]);
+        setNewDimension({ name: '', key: '', enabled: true });
+        setShowAddDimensionForm(false);
+        showToast('维度已添加', 'success');
+      } else {
+        const data = await res.json();
+        showToast(data.error || '添加失败', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to add dimension', e);
+      showToast('添加失败', 'error');
+    }
+    setAddingDimension(false);
+  };
+  
+  // Update dimension name
+  const updateDimensionName = async (dimId: string) => {
+    if (!editDimensionName.trim()) return;
+    
+    try {
+      const res = await fetch(`/api/dimensions/${dimId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ name: editDimensionName.trim() })
+      });
+      
+      if (res.ok) {
+        const updated = await res.json();
+        setDimensions(dimensions.map(d => d.id === dimId ? updated : d));
+        setEditingDimension(null);
+        setEditDimensionName('');
+        showToast('维度已更新', 'success');
+      } else {
+        showToast('更新失败', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to update dimension', e);
+      showToast('更新失败', 'error');
+    }
+  };
+  
+  // Delete dimension
+  const deleteDimension = async (dimId: string) => {
+    const dimension = dimensions.find(d => d.id === dimId);
+    if (!dimension) return;
+    
+    // Check if any servers are using this dimension
+    const serversUsingDimension = servers.filter(s => s.group_values?.[dimId]);
+    const confirmMessage = serversUsingDimension.length > 0
+      ? `确定要删除维度"${dimension.name}"吗？\n${serversUsingDimension.length} 台服务器正在使用此维度，删除后将清除其分组设置。`
+      : `确定要删除维度"${dimension.name}"吗？`;
+    
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+    
+    setDeletingDimension(dimId);
+    try {
+      const res = await fetch(`/api/dimensions/${dimId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (res.ok) {
+        setDimensions(dimensions.filter(d => d.id !== dimId));
+        showToast('维度已删除', 'success');
+      } else {
+        showToast('删除失败', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to delete dimension', e);
+      showToast('删除失败', 'error');
+    }
+    setDeletingDimension(null);
   };
   
   const removePingTarget = (index: number) => {
@@ -1351,12 +1462,22 @@ export default function Settings() {
             <span className="w-2 h-2 rounded-full bg-orange-500"></span>
             分组维度
           </h2>
-          <button
-            onClick={() => setShowDimensionsSection(!showDimensionsSection)}
-            className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-sm font-medium transition-colors"
-          >
-            {showDimensionsSection ? '收起' : '管理'}
-          </button>
+          <div className="flex items-center gap-2">
+            {showDimensionsSection && (
+              <button
+                onClick={() => setShowAddDimensionForm(true)}
+                className="px-4 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-sm font-medium transition-colors"
+              >
+                添加维度
+              </button>
+            )}
+            <button
+              onClick={() => setShowDimensionsSection(!showDimensionsSection)}
+              className="px-4 py-2 rounded-lg bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 text-sm font-medium transition-colors"
+            >
+              {showDimensionsSection ? '收起' : '管理'}
+            </button>
+          </div>
         </div>
         
         <p className="text-gray-400 text-sm mb-4">
@@ -1365,9 +1486,72 @@ export default function Settings() {
         
         {showDimensionsSection && (
           <div className="space-y-4">
-            {dimensions.length === 0 ? (
+            {/* Add Dimension Form */}
+            {showAddDimensionForm && (
+              <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  添加新维度
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">维度名称</label>
+                    <input
+                      type="text"
+                      value={newDimension.name}
+                      onChange={(e) => setNewDimension({ ...newDimension, name: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      placeholder="例如：地区、用途、类型..."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">唯一标识 (key)</label>
+                    <input
+                      type="text"
+                      value={newDimension.key}
+                      onChange={(e) => setNewDimension({ ...newDimension, key: e.target.value.toLowerCase().replace(/\s+/g, '_') })}
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                      placeholder="例如：region、purpose..."
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={newDimension.enabled}
+                      onChange={(e) => setNewDimension({ ...newDimension, enabled: e.target.checked })}
+                      className="w-4 h-4 rounded border-white/10 bg-white/5 text-emerald-500 focus:ring-emerald-500/20"
+                    />
+                    <span className="text-sm text-gray-400">创建后立即启用</span>
+                  </label>
+                </div>
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    onClick={addDimension}
+                    disabled={addingDimension || !newDimension.name.trim() || !newDimension.key.trim()}
+                    className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {addingDimension ? '添加中...' : '确认添加'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddDimensionForm(false);
+                      setNewDimension({ name: '', key: '', enabled: true });
+                    }}
+                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm font-medium transition-colors"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {dimensions.length === 0 && !showAddDimensionForm ? (
               <div className="text-gray-600 text-sm text-center py-4 border border-dashed border-white/10 rounded-lg">
-                暂无分组维度
+                暂无分组维度，点击上方"添加维度"创建
               </div>
             ) : (
               <div className="space-y-3">
@@ -1392,11 +1576,63 @@ export default function Settings() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                           </svg>
                         </div>
-                        <div>
-                          <div className="text-white font-medium">{dimension.name}</div>
-                          <div className="text-xs text-gray-500">
-                            {dimension.options?.length || 0} 个选项
-                          </div>
+                        <div className="flex-1">
+                          {editingDimension === dimension.id ? (
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={editDimensionName}
+                                onChange={(e) => setEditDimensionName(e.target.value)}
+                                className="px-2 py-1 rounded bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-orange-500/50"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') updateDimensionName(dimension.id);
+                                  if (e.key === 'Escape') {
+                                    setEditingDimension(null);
+                                    setEditDimensionName('');
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={() => updateDimensionName(dimension.id)}
+                                className="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs transition-colors"
+                              >
+                                保存
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingDimension(null);
+                                  setEditDimensionName('');
+                                }}
+                                className="px-2 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-400 text-xs transition-colors"
+                              >
+                                取消
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <span className="text-white font-medium">{dimension.name}</span>
+                                <button
+                                  onClick={() => {
+                                    setEditingDimension(dimension.id);
+                                    setEditDimensionName(dimension.name);
+                                  }}
+                                  className="p-1 rounded hover:bg-white/5 text-gray-500 hover:text-gray-300 transition-colors"
+                                  title="编辑名称"
+                                >
+                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  </svg>
+                                </button>
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                <span className="text-gray-600">{dimension.key}</span>
+                                <span className="mx-2">·</span>
+                                {dimension.options?.length || 0} 个选项
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -1415,6 +1651,16 @@ export default function Settings() {
                             }`} />
                           </button>
                         </label>
+                        <button
+                          onClick={() => deleteDimension(dimension.id)}
+                          disabled={deletingDimension === dimension.id}
+                          className="p-1.5 rounded hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors disabled:opacity-50"
+                          title="删除维度"
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
                       </div>
                     </div>
                     
