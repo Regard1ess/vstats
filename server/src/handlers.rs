@@ -12,7 +12,8 @@ use std::{collections::HashMap, time::Duration as StdDuration};
 use sysinfo::{CpuRefreshKind, Disks, Networks, System};
 
 use crate::collector::collect_metrics;
-use crate::config::{get_jwt_secret, save_config, LocalNodeConfig, ProbeSettings, RemoteServer, SiteSettings};
+use crate::config::{get_jwt_secret, save_config, LocalNodeConfig, ProbeSettings, RemoteServer, SiteSettings, SocialLink};
+use crate::security::{sanitize_host, sanitize_text};
 use crate::state::AppState;
 use crate::types::{
     AddServerRequest, AgentRegisterRequest, AgentRegisterResponse, ChangePasswordRequest, Claims,
@@ -171,7 +172,7 @@ pub async fn update_site_settings(
     Json(settings): Json<SiteSettings>,
 ) -> StatusCode {
     let mut config = state.config.write().await;
-    config.site_settings = settings;
+    config.site_settings = sanitize_site_settings(settings);
     save_config(&config);
     StatusCode::OK
 }
@@ -190,7 +191,7 @@ pub async fn update_local_node_config(
     Json(req): Json<LocalNodeConfig>,
 ) -> Result<Json<LocalNodeConfig>, StatusCode> {
     let mut config = state.config.write().await;
-    config.local_node = req;
+    config.local_node = sanitize_local_node_config(req);
     let local_node = config.local_node.clone();
     save_config(&config);
     Ok(Json(local_node))
@@ -210,7 +211,7 @@ pub async fn update_probe_settings(
     Json(settings): Json<ProbeSettings>,
 ) -> StatusCode {
     let mut config = state.config.write().await;
-    config.probe_settings = settings;
+    config.probe_settings = sanitize_probe_settings(settings);
     save_config(&config);
     StatusCode::OK
 }
@@ -233,11 +234,11 @@ pub async fn add_server(
 
     let server = RemoteServer {
         id: uuid::Uuid::new_v4().to_string(),
-        name: req.name,
-        url: req.url,
-        location: req.location,
-        provider: req.provider,
-        tag: req.tag,
+        name: sanitize_text(req.name),
+        url: sanitize_host(req.url),
+        location: sanitize_text(req.location),
+        provider: sanitize_text(req.provider),
+        tag: sanitize_text(req.tag),
         token: agent_token,
         version: String::new(),
         ip: String::new(),
@@ -270,16 +271,16 @@ pub async fn update_server(
         .find(|s| s.id == id)
         .ok_or(StatusCode::NOT_FOUND)?;
     
-    if let Some(name) = req.name {
+    if let Some(name) = req.name.map(sanitize_text) {
         server.name = name;
     }
-    if let Some(location) = req.location {
+    if let Some(location) = req.location.map(sanitize_text) {
         server.location = location;
     }
-    if let Some(provider) = req.provider {
+    if let Some(provider) = req.provider.map(sanitize_text) {
         server.provider = provider;
     }
-    if let Some(tag) = req.tag {
+    if let Some(tag) = req.tag.map(sanitize_text) {
         server.tag = tag;
     }
     
@@ -319,10 +320,10 @@ pub async fn register_agent(
 
     let server = RemoteServer {
         id: server_id.clone(),
-        name: req.name,
+        name: sanitize_text(req.name),
         url: String::new(),
-        location: req.location,
-        provider: req.provider,
+        location: sanitize_text(req.location),
+        provider: sanitize_text(req.provider),
         tag: String::new(),
         token: agent_token.clone(),
         version: String::new(),
@@ -657,10 +658,14 @@ pub async fn get_install_command(
     )
     .map_err(|_| StatusCode::UNAUTHORIZED)?;
 
-    let host = headers
+    let raw_host = headers
         .get(header::HOST)
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost:3001");
+    let host = {
+        let cleaned = sanitize_host(raw_host.to_string());
+        if cleaned.is_empty() { "localhost:3001".to_string() } else { cleaned }
+    };
     let protocol = if host.starts_with("localhost") || host.starts_with("127.") {
         "http"
     } else {
@@ -804,3 +809,51 @@ async fn fetch_latest_github_version(owner: &str, repo: &str) -> Result<String, 
     Ok(tag_name.trim_start_matches('v').to_string())
 }
 
+fn sanitize_local_node_config(config: LocalNodeConfig) -> LocalNodeConfig {
+    LocalNodeConfig {
+        name: sanitize_text(config.name),
+        location: sanitize_text(config.location),
+        provider: sanitize_text(config.provider),
+        tag: sanitize_text(config.tag),
+    }
+}
+
+fn sanitize_site_settings(settings: SiteSettings) -> SiteSettings {
+    SiteSettings {
+        site_name: sanitize_text(settings.site_name),
+        site_description: sanitize_text(settings.site_description),
+        social_links: settings
+            .social_links
+            .into_iter()
+            .filter_map(|link| {
+                let url = sanitize_host(link.url);
+                if url.is_empty() {
+                    return None;
+                }
+                Some(SocialLink {
+                    platform: sanitize_text(link.platform),
+                    url,
+                    label: sanitize_text(link.label),
+                })
+            })
+            .collect(),
+    }
+}
+
+fn sanitize_probe_settings(settings: ProbeSettings) -> ProbeSettings {
+    let ping_targets = settings
+        .ping_targets
+        .into_iter()
+        .filter_map(|target| {
+            let name = sanitize_text(target.name);
+            let host = sanitize_host(target.host);
+            if name.is_empty() || host.is_empty() {
+                None
+            } else {
+                Some(crate::config::PingTargetConfig { name, host })
+            }
+        })
+        .collect();
+
+    ProbeSettings { ping_targets }
+}

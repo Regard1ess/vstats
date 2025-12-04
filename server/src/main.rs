@@ -3,6 +3,7 @@ mod config;
 mod db;
 mod handlers;
 mod middleware;
+mod security;
 mod state;
 mod types;
 mod websocket;
@@ -30,6 +31,8 @@ use crate::handlers::{
     register_agent, update_agent, update_local_node_config, update_probe_settings, update_server, update_site_settings, verify_token,
 };
 use crate::middleware::auth_middleware;
+use crate::middleware::rate_limit_middleware;
+use crate::security::RateLimiter;
 use crate::state::AppState;
 use crate::types::{CompactMetrics, CompactServerUpdate, DeltaMessage, LastSentState};
 use crate::websocket::{agent_ws_handler, ws_handler};
@@ -223,6 +226,7 @@ async fn main() {
         db: Arc::new(Mutex::new(db)),
         agent_connections: Arc::new(RwLock::new(HashMap::new())),
         last_sent_state: Arc::new(RwLock::new(LastSentState::default())),
+        rate_limiter: RateLimiter::new(120, Duration::from_secs(60)),
     };
 
     // Background task for metrics broadcasting and data aggregation
@@ -426,6 +430,11 @@ async fn main() {
         },
     ));
 
+    let rate_limit_layer = axum_middleware::from_fn_with_state(
+        state.clone(),
+        rate_limit_middleware,
+    );
+
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/api/metrics", get(get_metrics))
@@ -442,6 +451,7 @@ async fn main() {
         .route("/ws", get(ws_handler))
         .route("/ws/agent", get(agent_ws_handler))
         .merge(protected_routes)
+        .layer(rate_limit_layer)
         .layer(cors)
         .with_state(state)
         .fallback_service(serve_dir);

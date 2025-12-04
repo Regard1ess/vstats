@@ -4,6 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 
 use crate::config::AppConfig;
+use crate::security::RateLimiter;
 use crate::types::{AgentMetricsData, LastSentState};
 
 /// Represents a connected agent's command channel
@@ -19,5 +20,5 @@ pub struct AppState {
     pub agent_connections: Arc<RwLock<HashMap<String, AgentCommandSender>>>,
     /// Track last sent state for delta calculation
     pub last_sent_state: Arc<RwLock<LastSentState>>,
+    pub rate_limiter: RateLimiter,
 }
-
