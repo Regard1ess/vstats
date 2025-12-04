@@ -4,9 +4,9 @@
 # One-click installation script
 #
 # Usage:
-#   curl -fsSL https://vstats.zsoft.cc/install.sh | sudo bash
+#   curl -fsSL https://github.com/Regard1ess/vstats/raw/refs/heads/main/install.sh | sudo bash
 #   or
-#   wget -qO- https://vstats.zsoft.cc/install.sh | sudo bash
+#   wget -qO- https://github.com/Regard1ess/vstats/raw/refs/heads/main/install.sh | sudo bash
 #
 
 set -e
@@ -22,8 +22,8 @@ NC='\033[0m' # No Color
 # Configuration
 INSTALL_DIR="/opt/vstats"
 SERVICE_NAME="vstats"
-DEFAULT_PORT=3001
-GITHUB_REPO="zsai001/vstats"
+DEFAULT_PORT=30001
+GITHUB_REPO="Regard1ess/vstats"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
 GITHUB_DOWNLOAD="https://github.com/${GITHUB_REPO}/releases/download"
 
