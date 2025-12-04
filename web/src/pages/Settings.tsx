@@ -128,7 +128,7 @@ export default function Settings() {
   
   // OAuth settings
   const [showOAuthSettings, setShowOAuthSettings] = useState(false);
-  const [oauthSettings, setOauthSettings] = useState<{
+  const [, setOauthSettings] = useState<{
     use_centralized?: boolean;
     allowed_users?: string[];
     github?: { enabled: boolean; client_id: string; has_secret: boolean; allowed_users: string[] };
