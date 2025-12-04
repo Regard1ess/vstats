@@ -1,4 +1,4 @@
-name: Build, Release and Deploy
+name: Build, Release and Deploy vStats
 
 on:
   push:
