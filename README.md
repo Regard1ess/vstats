@@ -1,6 +1,6 @@
 # vStats - Server Monitoring Dashboard
 
-[![GitHub Release](https://img.shields.io/github/v/release/zsai001/vstats?style=flat-square)](https://github.com/zsai001/vstats/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/Regard1ess/vstats?style=flat-square)](https://github.com/Regard1ess/vstats/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
 ![Rust](https://img.shields.io/badge/Rust-000000?style=flat-square&logo=rust&logoColor=white)
 ![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)
