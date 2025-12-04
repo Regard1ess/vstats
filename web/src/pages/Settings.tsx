@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { showToast } from '../components/Toast';
 import type { SiteSettings, SocialLink, ServerGroup, GroupDimension } from '../types';
@@ -84,6 +85,7 @@ const PLATFORM_OPTIONS = [
 ];
 
 export default function Settings() {
+  const { t } = useTranslation();
   const { isAuthenticated, token, logout, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -272,16 +274,16 @@ export default function Settings() {
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          showToast('Update command sent! The agent will restart.', 'success');
+          showToast(t('settings.updateSent'), 'success');
         } else {
-          showToast(`Update failed: ${data.message}`, 'error');
+          showToast(`${t('settings.updateFailed')}: ${data.message}`, 'error');
         }
       } else {
-        showToast('Failed to send update command', 'error');
+        showToast(t('settings.updateFailed'), 'error');
       }
     } catch (e) {
       console.error('Failed to update agent', e);
-      showToast('Failed to send update command', 'error');
+      showToast(t('settings.updateFailed'), 'error');
     }
     
     setUpdatingAgents(prev => ({ ...prev, [serverId]: false }));
@@ -534,13 +536,13 @@ export default function Settings() {
       if (res.ok) {
         const updated = await res.json();
         setDimensions(dimensions.map(d => d.id === dimId ? updated : d));
-        showToast(enabled ? '维度已启用' : '维度已禁用', 'success');
+        showToast(enabled ? t('common.enabled') : t('common.disabled'), 'success');
       } else {
-        showToast('更新失败', 'error');
+        showToast(t('settings.saveFailed'), 'error');
       }
     } catch (e) {
       console.error('Failed to update dimension', e);
-      showToast('更新失败', 'error');
+      showToast(t('settings.saveFailed'), 'error');
     }
   };
   
@@ -571,13 +573,13 @@ export default function Settings() {
             : d
         ));
         setNewOptionName({ ...newOptionName, [dimId]: '' });
-        showToast('选项已添加', 'success');
+        showToast(t('settings.saved'), 'success');
       } else {
-        showToast('添加失败', 'error');
+        showToast(t('settings.saveFailed'), 'error');
       }
     } catch (e) {
       console.error('Failed to add option', e);
-      showToast('添加失败', 'error');
+      showToast(t('settings.saveFailed'), 'error');
     }
     setAddingOption({ ...addingOption, [dimId]: false });
   };
@@ -1119,21 +1121,22 @@ export default function Settings() {
           <button
             onClick={() => navigate('/')}
             className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+            title={t('settings.backToDashboard')}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-white">Settings</h1>
-            <p className="text-gray-500 text-sm">Manage servers and configuration</p>
+            <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
+            <p className="text-gray-500 text-sm">{t('settings.serverManagement')}</p>
           </div>
         </div>
         <button
           onClick={logout}
           className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-colors"
         >
-          Logout
+          {t('settings.logout')}
         </button>
       </div>
 
@@ -1142,19 +1145,19 @@ export default function Settings() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            Site Settings
+            {t('settings.siteSettings')}
           </h2>
           <button
             onClick={() => setShowSiteSettings(!showSiteSettings)}
             className="px-4 py-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-sm font-medium transition-colors"
           >
-            {showSiteSettings ? 'Hide' : 'Edit'}
+            {showSiteSettings ? t('common.close') : t('common.edit')}
           </button>
         </div>
         
         {siteSettingsSuccess && (
           <div className="mb-4 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm">
-            Settings saved successfully!
+            {t('settings.saved')}
           </div>
         )}
         
@@ -1162,7 +1165,7 @@ export default function Settings() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Site Name</label>
+                <label className="block text-xs text-gray-500 mb-1">{t('settings.siteName')}</label>
                 <input
                   type="text"
                   value={siteSettings.site_name}
@@ -1172,7 +1175,7 @@ export default function Settings() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Site Description</label>
+                <label className="block text-xs text-gray-500 mb-1">{t('settings.siteDescription')}</label>
                 <input
                   type="text"
                   value={siteSettings.site_description}
@@ -1186,18 +1189,18 @@ export default function Settings() {
             {/* Social Links */}
             <div className="pt-4 border-t border-white/5">
               <div className="flex items-center justify-between mb-3">
-                <label className="text-xs text-gray-500 uppercase tracking-wider">Social Links</label>
+                <label className="text-xs text-gray-500 uppercase tracking-wider">{t('settings.socialLinks')}</label>
                 <button
                   type="button"
                   onClick={addSocialLink}
                   className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
                 >
-                  + Add Link
+                  + {t('settings.addSocialLink')}
                 </button>
               </div>
               
               {siteSettings.social_links.length === 0 ? (
-                <p className="text-gray-600 text-sm text-center py-4">No social links configured</p>
+                <p className="text-gray-600 text-sm text-center py-4">{t('common.none')}</p>
               ) : (
                 <div className="space-y-3">
                   {siteSettings.social_links.map((link, index) => (
@@ -1246,7 +1249,7 @@ export default function Settings() {
                 disabled={siteSettingsSaving}
                 className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors disabled:opacity-50"
               >
-                {siteSettingsSaving ? 'Saving...' : 'Save Settings'}
+                {siteSettingsSaving ? t('common.loading') : t('common.save')}
               </button>
             </div>
           </div>
@@ -1258,13 +1261,13 @@ export default function Settings() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-            Probe Settings
+            {t('settings.probeSettings')}
           </h2>
           <button
             onClick={() => setShowProbeSettings(!showProbeSettings)}
             className="px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 text-sm font-medium transition-colors"
           >
-            {showProbeSettings ? 'Hide' : 'Edit'}
+            {showProbeSettings ? t('common.close') : t('common.edit')}
           </button>
         </div>
         
@@ -1416,7 +1419,7 @@ export default function Settings() {
                   
                   <div>
                     <label className="block text-xs text-gray-500 mb-2">
-                      允许的用户 <span className="text-gray-600">（GitHub 用户名或 Google 邮箱，逗号分隔，留空允许所有人）</span>
+                      允许的用户 <span className="text-gray-600">（GitHub 用户名或 Google 邮箱，逗号分隔，留空所有人都不能登录）</span>
                     </label>
                     <input
                       type="text"

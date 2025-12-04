@@ -662,9 +662,9 @@ func getGoogleUser(accessToken string) (*GoogleUserInfo, error) {
 }
 
 func isUserAllowed(allowedUsers []string, identifier string) bool {
-	// If no allowed users specified, allow any authenticated user
+	// If no allowed users specified, deny all users
 	if len(allowedUsers) == 0 {
-		return true
+		return false
 	}
 
 	for _, u := range allowedUsers {

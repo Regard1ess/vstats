@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 // GitHub Icon SVG
@@ -20,6 +21,7 @@ const GoogleIcon = () => (
 );
 
 export default function Login() {
+  const { t } = useTranslation();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,7 +39,7 @@ export default function Login() {
     const inputPassword = (formData.get('password') as string) || password;
     
     if (!inputPassword) {
-      setError('Please enter a password');
+      setError(t('login.pleaseEnterPassword'));
       return;
     }
     
@@ -48,7 +50,7 @@ export default function Login() {
     if (success) {
       navigate('/settings');
     } else {
-      setError('Invalid password');
+      setError(t('login.invalidPassword'));
     }
     
     setLoading(false);
@@ -61,7 +63,7 @@ export default function Login() {
     try {
       await startOAuthLogin(provider);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'OAuth login failed');
+      setError(e instanceof Error ? e.message : t('login.oauthFailed'));
       setOauthLoading(null);
     }
   };
@@ -81,8 +83,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-400/15 via-emerald-500/10 to-cyan-400/15 border border-emerald-300/60 shadow-lg shadow-emerald-500/15">
             <span className="text-4xl">⚡</span>
           </div>
-          <h1 className="text-3xl font-bold text-slate-900">vStats</h1>
-          <p className="text-slate-500 text-sm">服务器监控管理面板</p>
+          <h1 className="text-3xl font-bold text-slate-900">{t('login.title')}</h1>
+          <p className="text-slate-500 text-sm">{t('login.subtitle')}</p>
         </div>
 
         {/* Login Card */}
@@ -107,12 +109,12 @@ export default function Login() {
                             className="w-5 h-5 border-2 rounded-full animate-spin" 
                             style={{ borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }}
                           />
-                          <span style={{ color: 'rgba(209, 213, 219, 1)' }}>正在跳转...</span>
+                          <span style={{ color: 'rgba(209, 213, 219, 1)' }}>{t('login.redirecting')}</span>
                         </>
                       ) : (
                         <>
                           <GitHubIcon />
-                          <span style={{ color: 'white' }}>使用 GitHub 登录</span>
+                          <span style={{ color: 'white' }}>{t('login.loginWithGithub')}</span>
                           <svg className="w-4 h-4 group-hover:translate-x-0.5 transition-all ml-auto" fill="none" viewBox="0 0 24 24" stroke="rgba(156, 163, 175, 1)">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
@@ -131,12 +133,12 @@ export default function Login() {
                       {oauthLoading === 'google' ? (
                         <>
                           <div className="w-5 h-5 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin" />
-                          <span className="text-slate-500">正在跳转...</span>
+                          <span className="text-slate-500">{t('login.redirecting')}</span>
                         </>
                       ) : (
                         <>
                           <GoogleIcon />
-                          <span>使用 Google 登录</span>
+                          <span>{t('login.loginWithGoogle')}</span>
                           <svg className="w-4 h-4 text-slate-400 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
@@ -149,7 +151,7 @@ export default function Login() {
                 {/* Divider */}
                 <div className="flex items-center gap-3 text-[11px] uppercase tracking-[0.2em] text-slate-400">
                   <span className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200 to-slate-200" />
-                  <span className="px-3 py-1 rounded-md bg-slate-900 text-slate-100">或使用密码</span>
+                  <span className="px-3 py-1 rounded-md bg-slate-900 text-slate-100">{t('login.orUsePassword')}</span>
                   <span className="h-px flex-1 bg-gradient-to-r from-slate-200 via-slate-200 to-transparent" />
                 </div>
               </>
@@ -158,7 +160,7 @@ export default function Login() {
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-slate-700">
-                  管理员密码
+                  {t('login.password')}
                 </label>
                 <input
                   type="password"
@@ -166,7 +168,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15 transition-all"
-                  placeholder="输入密码"
+                  placeholder={t('login.passwordPlaceholder')}
                   autoFocus={!hasOAuthProviders}
                 />
               </div>
@@ -188,14 +190,14 @@ export default function Login() {
                 {loading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    登录中...
+                    {t('login.loggingIn')}
                   </>
                 ) : (
                   <>
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                     </svg>
-                    登录
+                    {t('login.loginButton')}
                   </>
                 )}
               </button>
@@ -209,7 +211,7 @@ export default function Login() {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
-                返回仪表盘
+                {t('login.backToDashboard')}
               </button>
             </div>
           </div>
@@ -217,7 +219,7 @@ export default function Login() {
 
         {/* Help text */}
         <p className="text-center text-slate-500 text-xs">
-          忘记密码？运行 <code className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">./vstats-server --reset-password</code>
+          {t('login.forgotPassword')} <code className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">./vstats-server --reset-password</code>
         </p>
       </div>
     </div>

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
 export default function OAuthCallback() {
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { handleOAuthCallback } = useAuth();
@@ -25,9 +27,9 @@ export default function OAuthCallback() {
       handleOAuthCallback(token, parseInt(expires), provider, decodeURIComponent(user));
       navigate('/settings', { replace: true });
     } else {
-      setError('Invalid OAuth callback parameters');
+      setError(t('oauth.invalidParams'));
     }
-  }, [searchParams, handleOAuthCallback, navigate]);
+  }, [searchParams, handleOAuthCallback, navigate, t]);
 
   if (error) {
     return (
@@ -39,13 +41,13 @@ export default function OAuthCallback() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">Authentication Failed</h2>
+            <h2 className="text-xl font-bold text-white mb-2">{t('oauth.authenticationFailed')}</h2>
             <p className="text-gray-400 mb-6">{error}</p>
             <button
               onClick={() => navigate('/login')}
               className="px-6 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-medium transition-colors"
             >
-              Back to Login
+              {t('oauth.backToLogin')}
             </button>
           </div>
         </div>
@@ -60,8 +62,8 @@ export default function OAuthCallback() {
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-500/20 flex items-center justify-center">
             <div className="w-8 h-8 border-4 border-emerald-500/30 border-t-emerald-500 rounded-full animate-spin" />
           </div>
-          <h2 className="text-xl font-bold text-white mb-2">Authenticating...</h2>
-          <p className="text-gray-400">Please wait while we complete your sign in.</p>
+          <h2 className="text-xl font-bold text-white mb-2">{t('oauth.authenticating')}</h2>
+          <p className="text-gray-400">{t('oauth.pleaseWait')}</p>
         </div>
       </div>
     </div>

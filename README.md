@@ -339,6 +339,16 @@ Get-EventLog -LogName Application -Source vstats-agent -Newest 50
    - 创建 GitHub Release
    - 上传所有构建产物
 
+## ⭐ Star History
+
+<a href="https://star-history.com/#zsai001/vstats&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=zsai001/vstats&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=zsai001/vstats&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=zsai001/vstats&type=Date" />
+ </picture>
+</a>
+
 ## 📄 许可证
 
 MIT License

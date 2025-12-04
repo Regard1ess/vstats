@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useServerManager, formatBytes, formatSpeed, formatUptime } from '../hooks/useMetrics';
 import { getOsIcon, getProviderIcon } from '../components/Icons';
 import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUtils';
@@ -109,6 +110,7 @@ const CustomTooltip = ({
 };
 
 function HistoryChart({ serverId }: { serverId: string }) {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const isLight = theme === 'light';
   const [range, setRange] = useState<TimeRange>('24h');
@@ -157,12 +159,12 @@ function HistoryChart({ serverId }: { serverId: string }) {
   ];
 
   const tabs: { value: HistoryTab; label: string; color: string }[] = [
-    { value: 'overview', label: 'Overview', color: 'emerald' },
-    { value: 'cpu', label: 'CPU', color: 'blue' },
-    { value: 'memory', label: 'Memory', color: 'purple' },
-    { value: 'disk', label: 'Disk', color: 'amber' },
-    { value: 'network', label: 'Network', color: 'cyan' },
-    { value: 'ping', label: 'Ping', color: 'rose' },
+    { value: 'overview', label: t('serverDetail.history.overview'), color: 'emerald' },
+    { value: 'cpu', label: t('serverDetail.history.cpu'), color: 'blue' },
+    { value: 'memory', label: t('serverDetail.history.memory'), color: 'purple' },
+    { value: 'disk', label: t('serverDetail.history.disk'), color: 'amber' },
+    { value: 'network', label: t('serverDetail.history.network'), color: 'cyan' },
+    { value: 'ping', label: t('serverDetail.history.ping'), color: 'rose' },
   ];
 
   // Sample data for display (max 120 points for smooth line rendering)
@@ -438,13 +440,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
         </div>
         <div className="grid grid-cols-2 gap-4 text-center">
           <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-            <div className="text-[10px] text-gray-500 uppercase">Total Upload</div>
+            <div className="text-[10px] text-gray-500 uppercase">{t('serverDetail.history.totalUpload')}</div>
             <div className="text-lg font-mono text-emerald-500">
               {formatBytesLocal(data.reduce((a, b) => a + b.net_tx, 0))}
             </div>
           </div>
           <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
-            <div className="text-[10px] text-gray-500 uppercase">Total Download</div>
+            <div className="text-[10px] text-gray-500 uppercase">{t('serverDetail.history.totalDownload')}</div>
             <div className="text-lg font-mono text-cyan-500">
               {formatBytesLocal(data.reduce((a, b) => a + b.net_rx, 0))}
             </div>
@@ -475,7 +477,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
     if (data.length === 0) {
       return (
         <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
-          No historical data available for this period
+          {t('serverDetail.history.noData')}
         </div>
       );
     }
@@ -971,6 +973,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
 }
 
 export default function ServerDetail() {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { servers, loadingState, isInitialLoad } = useServerManager();
@@ -992,7 +995,7 @@ export default function ServerDetail() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 animate-pulse">
           <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
-          <div className="text-white/60 text-sm">Loading server data...</div>
+          <div className="text-white/60 text-sm">{t('serverDetail.loadingServerData')}</div>
         </div>
       </div>
     );
@@ -1009,13 +1012,13 @@ export default function ServerDetail() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
             </svg>
           </div>
-          <div className="text-gray-400 mb-2 text-lg font-medium">Server Not Available</div>
-          <div className="text-gray-600 text-sm mb-6">The server may have been removed or is offline.</div>
+          <div className="text-gray-400 mb-2 text-lg font-medium">{t('serverDetail.serverNotAvailable')}</div>
+          <div className="text-gray-600 text-sm mb-6">{t('serverDetail.serverNotAvailableDesc')}</div>
           <button 
             onClick={() => navigate('/')}
             className="px-6 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-medium transition-all hover:scale-105"
           >
-            ← Back to Dashboard
+            ← {t('serverDetail.backToDashboard')}
           </button>
         </div>
       </div>
@@ -1030,7 +1033,7 @@ export default function ServerDetail() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-500 rounded-full animate-spin" />
-          <div className="text-white/60 text-sm">Connecting to {config.name}...</div>
+          <div className="text-white/60 text-sm">{t('serverDetail.connectingTo', { name: config.name })}</div>
         </div>
       </div>
     );
@@ -1052,7 +1055,7 @@ export default function ServerDetail() {
         <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
-        <span className="text-sm">Back to Dashboard</span>
+        <span className="text-sm">{t('serverDetail.backToDashboard')}</span>
       </button>
 
       {/* Header */}
@@ -1121,7 +1124,7 @@ export default function ServerDetail() {
             </div>
           </div>
           <div className="text-right">
-            <div className="text-[10px] text-gray-500 uppercase tracking-wider">Uptime</div>
+            <div className="text-[10px] text-gray-500 uppercase tracking-wider">{t('dashboard.uptime')}</div>
             <div className="text-2xl font-bold text-emerald-400 font-mono">{formatUptime(metrics.uptime)}</div>
           </div>
         </div>
@@ -1129,10 +1132,10 @@ export default function ServerDetail() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Kernel" value={metrics.os.kernel} color="gray" />
-        <StatCard label="Load (1m)" value={metrics.load_average.one.toFixed(2)} color="purple" />
-        <StatCard label="Load (5m)" value={metrics.load_average.five.toFixed(2)} color="purple" />
-        <StatCard label="Load (15m)" value={metrics.load_average.fifteen.toFixed(2)} color="purple" />
+        <StatCard label={t('serverDetail.kernel')} value={metrics.os.kernel} color="gray" />
+        <StatCard label={t('serverDetail.load1m')} value={metrics.load_average.one.toFixed(2)} color="purple" />
+        <StatCard label={t('serverDetail.load5m')} value={metrics.load_average.five.toFixed(2)} color="purple" />
+        <StatCard label={t('serverDetail.load15m')} value={metrics.load_average.fifteen.toFixed(2)} color="purple" />
       </div>
 
       {/* Main Grid */}
@@ -1142,7 +1145,7 @@ export default function ServerDetail() {
         <div className="nezha-card p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-            CPU
+            {t('serverDetail.cpuSection')}
           </h2>
           <div className="flex items-center justify-between mb-4">
             <span className="text-sm text-gray-300 truncate flex-1 mr-4">{metrics.cpu.brand}</span>
@@ -1155,14 +1158,14 @@ export default function ServerDetail() {
             />
           </div>
           <div className="flex items-center justify-between text-xs text-gray-500 mb-6">
-            <span>{metrics.cpu.cores} Cores / Threads</span>
+            <span>{t('serverDetail.cpuCores', { count: metrics.cpu.cores })}</span>
             <span>{(metrics.cpu.frequency / 1000).toFixed(2)} GHz</span>
           </div>
 
           {/* Per-core usage */}
           {metrics.cpu.per_core.length > 0 && (
             <div className="pt-4 border-t border-white/5">
-              <div className="text-xs text-gray-500 mb-3">Per-Core Usage</div>
+              <div className="text-xs text-gray-500 mb-3">{t('serverDetail.perCoreUsage')}</div>
               <div className="grid grid-cols-5 gap-2">
                 {metrics.cpu.per_core.map((usage, i) => (
                   <div key={i} className="relative h-16 rounded-lg bg-gray-800/50 overflow-hidden group" title={`Core ${i}: ${usage.toFixed(0)}%`}>
@@ -1185,13 +1188,13 @@ export default function ServerDetail() {
         <div className="nezha-card p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-purple-500"></span>
-            Memory
+            {t('serverDetail.memorySection')}
           </h2>
           
           {/* RAM */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-gray-400">RAM</span>
+              <span className="text-sm text-gray-400">{t('serverDetail.ram')}</span>
               <span className="text-2xl font-bold text-purple-400 font-mono">{metrics.memory.usage_percent.toFixed(1)}%</span>
             </div>
             <div className="h-3 w-full bg-gray-700/50 rounded-full overflow-hidden mb-3">
@@ -1202,15 +1205,15 @@ export default function ServerDetail() {
             </div>
             <div className="grid grid-cols-3 gap-4 text-center">
               <div>
-                <div className="text-xs text-gray-500">Used</div>
+                <div className="text-xs text-gray-500">{t('serverDetail.used')}</div>
                 <div className="text-sm font-mono text-white">{formatBytes(metrics.memory.used)}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">Available</div>
+                <div className="text-xs text-gray-500">{t('serverDetail.available')}</div>
                 <div className="text-sm font-mono text-emerald-400">{formatBytes(metrics.memory.available)}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500">Total</div>
+                <div className="text-xs text-gray-500">{t('serverDetail.total')}</div>
                 <div className="text-sm font-mono text-white">{formatBytes(metrics.memory.total)}</div>
               </div>
             </div>
@@ -1220,7 +1223,7 @@ export default function ServerDetail() {
           {metrics.memory.swap_total > 0 && (
             <div className="pt-4 border-t border-white/5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-400">Swap</span>
+                <span className="text-sm text-gray-400">{t('serverDetail.swap')}</span>
                 <span className="text-lg font-bold text-gray-400 font-mono">
                   {((metrics.memory.swap_used / metrics.memory.swap_total) * 100).toFixed(1)}%
                 </span>
@@ -1232,8 +1235,8 @@ export default function ServerDetail() {
                 />
               </div>
               <div className="flex justify-between text-xs text-gray-500">
-                <span>Used: {formatBytes(metrics.memory.swap_used)}</span>
-                <span>Total: {formatBytes(metrics.memory.swap_total)}</span>
+                <span>{t('serverDetail.used')}: {formatBytes(metrics.memory.swap_used)}</span>
+                <span>{t('serverDetail.total')}: {formatBytes(metrics.memory.swap_total)}</span>
               </div>
             </div>
           )}
@@ -1243,7 +1246,7 @@ export default function ServerDetail() {
         <div className="nezha-card p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-            Storage
+            {t('serverDetail.storageSection')}
           </h2>
           <div className="space-y-5">
             {metrics.disks.map((disk, i) => (
@@ -1266,9 +1269,9 @@ export default function ServerDetail() {
                   />
                 </div>
                 <div className="flex justify-between text-xs text-gray-500">
-                  <span>{formatBytes(disk.used)} used</span>
-                  <span>{formatBytes(disk.total - disk.used)} free</span>
-                  <span>{formatBytes(disk.total)} total</span>
+                  <span>{formatBytes(disk.used)} {t('serverDetail.used').toLowerCase()}</span>
+                  <span>{formatBytes(disk.total - disk.used)} {t('serverDetail.free')}</span>
+                  <span>{formatBytes(disk.total)} {t('serverDetail.total').toLowerCase()}</span>
                 </div>
               </div>
             ))}
@@ -1279,17 +1282,17 @@ export default function ServerDetail() {
         <div className="nezha-card p-6">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-cyan-500"></span>
-            Network
+            {t('serverDetail.networkSection')}
           </h2>
 
           {/* Current Speed */}
           <div className="grid grid-cols-2 gap-4 mb-6">
             <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-              <div className="text-xs text-emerald-400 mb-1">↑ Upload Speed</div>
+              <div className="text-xs text-emerald-400 mb-1">↑ {t('serverDetail.uploadSpeed')}</div>
               <div className="text-2xl font-bold font-mono text-emerald-300">{formatSpeed(speed.tx_sec)}</div>
             </div>
             <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
-              <div className="text-xs text-blue-400 mb-1">↓ Download Speed</div>
+              <div className="text-xs text-blue-400 mb-1">↓ {t('serverDetail.downloadSpeed')}</div>
               <div className="text-2xl font-bold font-mono text-blue-300">{formatSpeed(speed.rx_sec)}</div>
             </div>
           </div>
@@ -1297,18 +1300,18 @@ export default function ServerDetail() {
           {/* Total Traffic */}
           <div className="grid grid-cols-2 gap-4 mb-6 p-4 rounded-xl bg-white/[0.02] border border-white/5">
             <div>
-              <div className="text-xs text-gray-500 mb-1">Total Uploaded</div>
+              <div className="text-xs text-gray-500 mb-1">{t('serverDetail.totalUploaded')}</div>
               <div className="text-lg font-bold font-mono text-white">{formatBytes(metrics.network.total_tx)}</div>
             </div>
             <div>
-              <div className="text-xs text-gray-500 mb-1">Total Downloaded</div>
+              <div className="text-xs text-gray-500 mb-1">{t('serverDetail.totalDownloaded')}</div>
               <div className="text-lg font-bold font-mono text-white">{formatBytes(metrics.network.total_rx)}</div>
             </div>
           </div>
 
           {/* Interfaces */}
           <div className="pt-4 border-t border-white/5">
-            <div className="text-xs text-gray-500 mb-3">Network Interfaces</div>
+            <div className="text-xs text-gray-500 mb-3">{t('serverDetail.networkInterfaces')}</div>
             <div className="space-y-2 max-h-48 overflow-y-auto">
               {[...metrics.network.interfaces]
                 .filter(iface => iface.rx_bytes > 0 || iface.tx_bytes > 0)
@@ -1328,7 +1331,7 @@ export default function ServerDetail() {
           {/* Ping Status */}
           {metrics.ping && metrics.ping.targets.length > 0 && (
             <div className="pt-4 border-t border-white/5 mt-4">
-              <div className="text-xs text-gray-500 mb-3">Ping Latency</div>
+              <div className="text-xs text-gray-500 mb-3">{t('serverDetail.pingLatency')}</div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {metrics.ping.targets.map((target, i) => (
                   <div 
@@ -1367,7 +1370,7 @@ export default function ServerDetail() {
       {/* Footer */}
       <footer className="text-center mt-8 pt-6 border-t border-white/5">
         <p className="text-white/20 text-xs font-mono">
-          Last updated: {new Date().toLocaleString()}
+          {t('serverDetail.lastUpdated')} {new Date().toLocaleString()}
         </p>
       </footer>
     </div>

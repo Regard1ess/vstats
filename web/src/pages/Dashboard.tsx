@@ -1,9 +1,11 @@
 import { useState, useEffect, type ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useServerManager, formatSpeed, formatUptime, type ServerState } from '../hooks/useMetrics';
 import { getOsIcon } from '../components/Icons';
 import { getProviderLogo, getDistributionLogo, LogoImage } from '../utils/logoUtils';
 import { useTheme } from '../context/ThemeContext';
+import { LanguageSwitcher } from '../components/LanguageSwitcher';
 import type { SocialLink, GroupOption } from '../types';
 
 type ViewMode = 'list' | 'grid' | 'compact';
@@ -208,6 +210,7 @@ const getResourceState = (value: number, thresholds: [number, number]): 'ok' | '
 
 // VPS Grid Card Component
 function VpsGridCard({ server, onClick, isDark }: { server: ServerState; onClick: () => void; isDark: boolean }) {
+  const { t } = useTranslation();
   const { metrics, speed, isConnected, config } = server;
   const themeClass = isDark ? 'dark' : 'light';
   
@@ -300,25 +303,15 @@ function VpsGridCard({ server, onClick, isDark }: { server: ServerState; onClick
 
   const getTipBadgeLabel = (tag?: string) => {
     if (!tag) return null;
-    const tagLower = tag.toLowerCase();
-    if (tagLower.includes('cn3-opt') || tagLower.includes('三网优化')) return '三网优化';
-    if (tagLower.includes('cn3-gia') || tagLower.includes('三网gia')) return '三网 GIA';
-    if (tagLower.includes('big-disk') || tagLower.includes('大盘')) return '大盘鸡';
-    if (tagLower.includes('perf') || tagLower.includes('性能')) return '性能机';
-    if (tagLower.includes('landing') || tagLower.includes('落地')) return '落地机';
-    if (tagLower.includes('dufu') || tagLower.includes('杜甫')) return '杜甫';
+    const badgeClass = getTipBadgeClass(tag);
+    if (badgeClass) return t(`dashboard.tipBadge.${badgeClass}`);
     return null;
   };
 
   // Tip badge: use config.tip_badge if set, otherwise infer from tag
   const tipBadgeClass = config.tip_badge || getTipBadgeClass(config.tag);
   const tipBadgeLabel = config.tip_badge 
-    ? (config.tip_badge === 'cn3-opt' ? '三网优化' :
-       config.tip_badge === 'cn3-gia' ? '三网 GIA' :
-       config.tip_badge === 'big-disk' ? '大盘鸡' :
-       config.tip_badge === 'perf' ? '性能机' :
-       config.tip_badge === 'landing' ? '落地机' :
-       config.tip_badge === 'dufu' ? '杜甫' : null)
+    ? t(`dashboard.tipBadge.${config.tip_badge}`)
     : getTipBadgeLabel(config.tag);
   const pingMetrics = metrics.ping;
   const remainingValue = calculateRemainingValue(config.price, config.purchase_date);
@@ -444,6 +437,7 @@ function VpsGridCard({ server, onClick, isDark }: { server: ServerState; onClick
 
 // VPS List Card Component
 function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick: () => void; isDark: boolean }) {
+  const { t } = useTranslation();
   const { metrics, speed, isConnected, config } = server;
   const themeClass = isDark ? 'dark' : 'light';
   
@@ -462,7 +456,7 @@ function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick
           <div className="h-4 skeleton-bg rounded w-32 mb-2" />
           <div className="h-3 skeleton-bg rounded w-24" />
         </div>
-        <div className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>Connecting...</div>
+        <div className={`text-sm ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{t('common.connecting')}</div>
       </div>
     );
   }
@@ -484,25 +478,15 @@ function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick
 
   const getTipBadgeLabel = (tag?: string) => {
     if (!tag) return null;
-    const tagLower = tag.toLowerCase();
-    if (tagLower.includes('cn3-opt') || tagLower.includes('三网优化')) return '三网优化';
-    if (tagLower.includes('cn3-gia') || tagLower.includes('三网gia')) return '三网 GIA';
-    if (tagLower.includes('big-disk') || tagLower.includes('大盘')) return '大盘鸡';
-    if (tagLower.includes('perf') || tagLower.includes('性能')) return '性能机';
-    if (tagLower.includes('landing') || tagLower.includes('落地')) return '落地机';
-    if (tagLower.includes('dufu') || tagLower.includes('杜甫')) return '杜甫';
+    const badgeClass = getTipBadgeClass(tag);
+    if (badgeClass) return t(`dashboard.tipBadge.${badgeClass}`);
     return null;
   };
 
   // Tip badge: use config.tip_badge if set, otherwise infer from tag
   const tipBadgeClass = config.tip_badge || getTipBadgeClass(config.tag);
   const tipBadgeLabel = config.tip_badge 
-    ? (config.tip_badge === 'cn3-opt' ? '三网优化' :
-       config.tip_badge === 'cn3-gia' ? '三网 GIA' :
-       config.tip_badge === 'big-disk' ? '大盘鸡' :
-       config.tip_badge === 'perf' ? '性能机' :
-       config.tip_badge === 'landing' ? '落地机' :
-       config.tip_badge === 'dufu' ? '杜甫' : null)
+    ? t(`dashboard.tipBadge.${config.tip_badge}`)
     : getTipBadgeLabel(config.tag);
   const pingMetrics = metrics.ping;
   const remainingValue = calculateRemainingValue(config.price, config.purchase_date);
@@ -626,18 +610,18 @@ function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick
             {config.price && (
               <div className={`vps-price vps-price--${themeClass}`}>
                 <span className="vps-price-amount">{formatPrice(config.price.amount)}</span>
-                <span className="vps-price-period">/{config.price.period === 'month' ? '月' : '年'}</span>
+                <span className="vps-price-period">{config.price.period === 'month' ? t('dashboard.perMonth') : t('dashboard.perYear')}</span>
               </div>
             )}
             {remainingValue && (
               <div className={`vps-footer-info-item vps-footer-info-item--${themeClass}`}>
-                <span className="vps-footer-info-label">剩余</span>
+                <span className="vps-footer-info-label">{t('dashboard.remaining')}</span>
                 <span className="vps-footer-info-value">{remainingValue}</span>
               </div>
             )}
             {config.purchase_date && (
               <div className={`vps-footer-info-item vps-footer-info-item--${themeClass}`}>
-                <span className="vps-footer-info-label">购买</span>
+                <span className="vps-footer-info-label">{t('dashboard.purchased')}</span>
                 <span className="vps-footer-info-value">{formatPurchaseDate(config.purchase_date)}</span>
               </div>
             )}
@@ -645,7 +629,7 @@ function VpsListCard({ server, onClick, isDark }: { server: ServerState; onClick
         )}
         <div className="vps-footer-row-status">
           <div className={`vps-uptime-item vps-uptime-item--${themeClass}`}>
-            <span className="vps-uptime-label">运行</span>
+            <span className="vps-uptime-label">{t('dashboard.running')}</span>
             <span className="vps-uptime-value">{formatUptime(metrics.uptime)}</span>
           </div>
           {pingMetrics && pingMetrics.targets && pingMetrics.targets.length > 0 && (
@@ -681,24 +665,25 @@ const formatTraffic = (bytes: number): string => {
 };
 
 // Format uptime as days
-const formatUptimeDays = (seconds: number): string => {
+const formatUptimeDays = (seconds: number, t: (key: string) => string): string => {
   const days = Math.floor(seconds / 86400);
-  return `${days} Days`;
+  return `${days} ${t('dashboard.days')}`;
 };
 
 // VPS Compact Table Header
 function VpsCompactTableHeader({ isDark }: { isDark: boolean }) {
+  const { t } = useTranslation();
   const themeClass = isDark ? 'dark' : 'light';
   return (
     <div className={`vps-compact-header vps-compact-header--${themeClass}`}>
-      <div className="vps-compact-col vps-compact-col--node">NODE</div>
-      <div className="vps-compact-col vps-compact-col--type">TYPE</div>
-      <div className="vps-compact-col vps-compact-col--uptime">UPTIME</div>
-      <div className="vps-compact-col vps-compact-col--network">NETWORK</div>
-      <div className="vps-compact-col vps-compact-col--traffic">TRAFFIC</div>
-      <div className="vps-compact-col vps-compact-col--cpu">CPU</div>
-      <div className="vps-compact-col vps-compact-col--mem">MEM</div>
-      <div className="vps-compact-col vps-compact-col--hdd">HDD</div>
+      <div className="vps-compact-col vps-compact-col--node">{t('dashboard.node')}</div>
+      <div className="vps-compact-col vps-compact-col--type">{t('dashboard.type')}</div>
+      <div className="vps-compact-col vps-compact-col--uptime">{t('dashboard.uptime')}</div>
+      <div className="vps-compact-col vps-compact-col--network">{t('dashboard.network')}</div>
+      <div className="vps-compact-col vps-compact-col--traffic">{t('dashboard.traffic')}</div>
+      <div className="vps-compact-col vps-compact-col--cpu">{t('dashboard.cpu')}</div>
+      <div className="vps-compact-col vps-compact-col--mem">{t('dashboard.mem')}</div>
+      <div className="vps-compact-col vps-compact-col--hdd">{t('dashboard.hdd')}</div>
     </div>
   );
 }
@@ -709,6 +694,7 @@ function VpsCompactCard({ server, onClick, isDark }: {
   onClick: () => void; 
   isDark: boolean;
 }) {
+  const { t } = useTranslation();
   const { metrics, speed, isConnected, config } = server;
   const themeClass = isDark ? 'dark' : 'light';
   
@@ -810,7 +796,7 @@ function VpsCompactCard({ server, onClick, isDark }: {
 
       {/* UPTIME */}
       <div className={`vps-compact-col vps-compact-col--uptime vps-compact-text--${themeClass}`}>
-        {formatUptimeDays(metrics.uptime)}
+        {formatUptimeDays(metrics.uptime, t)}
       </div>
 
       {/* NETWORK */}
@@ -938,6 +924,7 @@ function VpsGridCardSkeleton({ isDark }: { isDark: boolean }) {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { servers, groupDimensions, siteSettings, isInitialLoad } = useServerManager();
   const { theme, toggleTheme } = useTheme();
@@ -1056,10 +1043,10 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <div>
               <h1 className={`text-xl md:text-2xl font-bold tracking-tight flex items-center gap-2 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                <span className="text-emerald-500">⚡</span> {siteSettings.site_name || 'vStats Dashboard'}
+                <span className="text-emerald-500">⚡</span> {siteSettings.site_name || t('dashboard.title')}
               </h1>
               <p className={`text-xs mt-0.5 font-mono ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                {siteSettings.site_description || 'Real-time Server Monitoring'}
+                {siteSettings.site_description || t('dashboard.subtitle')}
               </p>
             </div>
             <SocialLinks links={siteSettings.social_links} className="hidden sm:flex" isDark={isDark} />
@@ -1069,7 +1056,7 @@ export default function Dashboard() {
             <button
               onClick={toggleViewMode}
               className={`vps-btn ${isDark ? 'vps-btn-outline-dark' : 'vps-btn-outline-light'} p-2.5`}
-              title={`切换视图 (${viewMode === 'grid' ? '网格' : viewMode === 'list' ? '列表' : '紧凑'})`}
+              title={`${t('dashboard.switchView')} (${viewMode === 'grid' ? t('dashboard.viewModeGrid') : viewMode === 'list' ? t('dashboard.viewModeList') : t('dashboard.viewModeCompact')})`}
             >
               {viewMode === 'grid' ? (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1085,11 +1072,13 @@ export default function Dashboard() {
                 </svg>
               )}
             </button>
+            {/* Language Switcher */}
+            <LanguageSwitcher isDark={isDark} />
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
               className={`vps-btn ${isDark ? 'vps-btn-outline-dark' : 'vps-btn-outline-light'} p-2.5`}
-              title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              title={t('dashboard.switchTheme', { mode: isDark ? t('dashboard.lightMode') : t('dashboard.darkMode') })}
             >
               {isDark ? (
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1104,7 +1093,7 @@ export default function Dashboard() {
             <button
               onClick={() => navigate('/settings')}
               className={`vps-btn ${isDark ? 'vps-btn-outline-dark' : 'vps-btn-outline-light'} p-2.5`}
-              title="Settings"
+              title={t('dashboard.settings')}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1117,19 +1106,19 @@ export default function Dashboard() {
         {/* Overview Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className={`vps-overview-card vps-overview-card--online-${themeClass}`}>
-            <div className="vps-overview-label vps-overview-label--online">Online</div>
+            <div className="vps-overview-label vps-overview-label--online">{t('dashboard.online')}</div>
             <div className={`vps-overview-value vps-overview-value--${themeClass}`}>{onlineCount}</div>
           </div>
           <div className={`vps-overview-card vps-overview-card--offline-${themeClass}`}>
-            <div className="vps-overview-label vps-overview-label--offline">Offline</div>
+            <div className="vps-overview-label vps-overview-label--offline">{t('dashboard.offline')}</div>
             <div className={`vps-overview-value vps-overview-value--${themeClass}`}>{servers.length - onlineCount}</div>
           </div>
           <div className={`vps-overview-card vps-overview-card--download-${themeClass}`}>
-            <div className="vps-overview-label vps-overview-label--download">↓ Download</div>
+            <div className="vps-overview-label vps-overview-label--download">↓ {t('dashboard.download')}</div>
             <div className={`vps-overview-value vps-overview-value--${themeClass} text-lg md:text-xl font-mono`}>{formatSpeed(totalBandwidthRx)}</div>
           </div>
           <div className={`vps-overview-card vps-overview-card--upload-${themeClass}`}>
-            <div className="vps-overview-label vps-overview-label--upload">↑ Upload</div>
+            <div className="vps-overview-label vps-overview-label--upload">↑ {t('dashboard.upload')}</div>
             <div className={`vps-overview-value vps-overview-value--${themeClass} text-lg md:text-xl font-mono`}>{formatSpeed(totalBandwidthTx)}</div>
           </div>
         </div>
@@ -1137,7 +1126,7 @@ export default function Dashboard() {
         {/* Dimension Selector */}
         {enabledDimensions.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-medium ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>分组:</span>
+            <span className={`text-xs font-medium ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>{t('dashboard.groupBy')}</span>
             <button
               onClick={() => handleDimensionSelect(null)}
               className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
@@ -1150,7 +1139,7 @@ export default function Dashboard() {
                     : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
-              全部
+              {t('common.all')}
             </button>
             {enabledDimensions.map(dim => (
               <button
@@ -1175,7 +1164,7 @@ export default function Dashboard() {
         {/* Server List */}
         <div className="flex flex-col gap-3">
           <div className={`flex items-center justify-between px-1 text-[10px] font-bold uppercase tracking-wider ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-            <span>Server Details</span>
+            <span>{t('dashboard.serverDetails')}</span>
             <span className={`font-mono ${isDark ? 'text-gray-700' : 'text-gray-400'}`}>{new Date().toLocaleTimeString()}</span>
           </div>
           
@@ -1293,7 +1282,7 @@ export default function Dashboard() {
                   <div className={`flex items-center gap-2 mb-3 px-1`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${isDark ? 'bg-gray-500' : 'bg-gray-400'}`} />
                     <span className={`text-sm font-medium ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                      未分配
+                      {t('common.unassigned')}
                     </span>
                     <span className={`text-xs ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
                       ({ungroupedServers.length})
@@ -1412,7 +1401,7 @@ export default function Dashboard() {
           <p className={`text-[10px] font-mono ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
             vStats Monitor {serverVersion && `v${serverVersion}`}
             {serverVersion && ' · '}
-            Made with <span className="text-red-500">❤️</span> by{' '}
+            {t('dashboard.madeWith')} <span className="text-red-500">❤️</span> {t('dashboard.by')}{' '}
             <a 
               href="https://vstats.zsoft.cc" 
               target="_blank" 
