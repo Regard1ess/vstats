@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useTheme, type ThemeId, type BackgroundType } from '../context/ThemeContext';
 import { showToast } from '../components/Toast';
 import type { SiteSettings, SocialLink, ServerGroup, GroupDimension } from '../types';
 
@@ -83,6 +84,392 @@ const PLATFORM_OPTIONS = [
   { value: 'email', label: 'Email' },
   { value: 'website', label: 'Website' },
 ];
+
+// Theme Settings Component
+// Background type options
+const BACKGROUND_OPTIONS: { type: BackgroundType; name: string; nameZh: string; icon: string }[] = [
+  { type: 'gradient', name: 'Theme Gradient', nameZh: '主题渐变', icon: '🎨' },
+  { type: 'bing', name: 'Bing Daily', nameZh: 'Bing 每日壁纸', icon: '🖼️' },
+  { type: 'unsplash', name: 'Unsplash', nameZh: 'Unsplash 随机', icon: '📷' },
+  { type: 'custom', name: 'Custom URL', nameZh: '自定义图片', icon: '🔗' },
+  { type: 'solid', name: 'Solid Color', nameZh: '纯色背景', icon: '🎯' },
+];
+
+// Unsplash keyword presets
+const UNSPLASH_PRESETS = [
+  { query: 'nature,landscape', label: 'Nature', labelZh: '自然风光' },
+  { query: 'city,night', label: 'City Night', labelZh: '城市夜景' },
+  { query: 'mountains,snow', label: 'Mountains', labelZh: '雪山' },
+  { query: 'ocean,beach', label: 'Ocean', labelZh: '海洋' },
+  { query: 'forest,trees', label: 'Forest', labelZh: '森林' },
+  { query: 'space,galaxy', label: 'Space', labelZh: '宇宙' },
+  { query: 'abstract,gradient', label: 'Abstract', labelZh: '抽象' },
+  { query: 'minimal,architecture', label: 'Minimal', labelZh: '极简' },
+];
+
+function ThemeSettingsSection() {
+  const { i18n } = useTranslation();
+  const { themeId, setTheme, themes, background, setBackground, backgroundUrl, refreshBackground } = useTheme();
+  const [hoveredTheme, setHoveredTheme] = useState<ThemeId | null>(null);
+  const [customUrl, setCustomUrl] = useState(background.customUrl || '');
+  const [unsplashQuery, setUnsplashQuery] = useState(background.unsplashQuery || 'nature,landscape');
+  const [solidColor, setSolidColor] = useState(background.solidColor || '#1a1a2e');
+  const [bgBlur, setBgBlur] = useState(background.blur || 0);
+  const [bgOpacity, setBgOpacity] = useState(background.opacity || 100);
+  const isZh = i18n.language.startsWith('zh');
+
+  const handleBackgroundTypeChange = (type: BackgroundType) => {
+    setBackground({
+      ...background,
+      type,
+      customUrl: type === 'custom' ? customUrl : undefined,
+      unsplashQuery: type === 'unsplash' ? unsplashQuery : undefined,
+      solidColor: type === 'solid' ? solidColor : undefined,
+    });
+  };
+
+  const handleApplyCustomUrl = () => {
+    if (customUrl) {
+      setBackground({ ...background, type: 'custom', customUrl });
+    }
+  };
+
+  const handleApplyUnsplash = (query?: string) => {
+    const q = query || unsplashQuery;
+    setUnsplashQuery(q);
+    setBackground({ ...background, type: 'unsplash', unsplashQuery: q });
+  };
+
+  const handleApplySolidColor = () => {
+    setBackground({ ...background, type: 'solid', solidColor });
+  };
+
+  const handleBlurChange = (value: number) => {
+    setBgBlur(value);
+    setBackground({ ...background, blur: value });
+  };
+
+  const handleOpacityChange = (value: number) => {
+    setBgOpacity(value);
+    setBackground({ ...background, opacity: value });
+  };
+
+  return (
+    <div className="space-y-6 mb-6">
+      {/* Theme Selection Card */}
+      <div className="nezha-card p-6">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+          <span className="w-2 h-2 rounded-full bg-gradient-to-r from-pink-500 to-purple-500"></span>
+          {isZh ? '主题风格' : 'Theme Style'}
+        </h2>
+        
+        <p className="text-sm text-gray-400 mb-6">
+          {isZh ? '每个主题都有独特的视觉设计和动效' : 'Each theme has unique visual design and animations'}
+        </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          {themes.map((theme) => {
+            const isSelected = themeId === theme.id;
+            const isHovered = hoveredTheme === theme.id;
+            
+            return (
+              <button
+                key={theme.id}
+                onClick={() => setTheme(theme.id)}
+                onMouseEnter={() => setHoveredTheme(theme.id)}
+                onMouseLeave={() => setHoveredTheme(null)}
+                className={`
+                  relative group p-4 rounded-xl border-2 transition-all duration-300 text-left
+                  ${isSelected 
+                    ? 'border-emerald-500 ring-2 ring-emerald-500/30 scale-[1.02]' 
+                    : 'border-white/10 hover:border-white/30 hover:scale-[1.01]'
+                  }
+                `}
+                style={{
+                  background: `linear-gradient(135deg, ${theme.preview.background}ee 0%, ${theme.preview.primary}ee 100%)`
+                }}
+              >
+                {/* Theme Preview Mini Card */}
+                <div 
+                  className="w-full h-16 rounded-lg mb-3 relative overflow-hidden border border-white/10"
+                  style={{ backgroundColor: theme.preview.background }}
+                >
+                  {/* Mini card inside preview */}
+                  <div 
+                    className="absolute bottom-2 left-2 right-2 h-8 rounded"
+                    style={{ 
+                      backgroundColor: theme.preview.primary,
+                      boxShadow: `0 2px 8px ${theme.preview.accent}30`
+                    }}
+                  />
+                  {/* Accent line */}
+                  <div 
+                    className="absolute top-0 left-0 right-0 h-1"
+                    style={{ backgroundColor: theme.preview.accent }}
+                  />
+                </div>
+
+                {/* Theme Name */}
+                <div className="font-semibold text-sm text-white mb-1">
+                  {isZh ? theme.nameZh : theme.name}
+                </div>
+
+                {/* Theme Style Badge */}
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                    theme.isDark ? 'bg-gray-700 text-gray-300' : 'bg-amber-100 text-amber-700'
+                  }`}>
+                    {theme.isDark ? (isZh ? '深色' : 'Dark') : (isZh ? '浅色' : 'Light')}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-gray-400 capitalize">
+                    {theme.style}
+                  </span>
+                </div>
+
+                {/* Selected Indicator */}
+                {isSelected && (
+                  <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg">
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                )}
+
+                {/* Hover Effect */}
+                <div 
+                  className={`
+                    absolute inset-0 rounded-xl transition-opacity duration-300 pointer-events-none
+                    ${isHovered && !isSelected ? 'opacity-100' : 'opacity-0'}
+                  `}
+                  style={{
+                    background: `radial-gradient(circle at center, ${theme.preview.accent}20 0%, transparent 70%)`
+                  }}
+                />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Background Settings Card */}
+      <div className="nezha-card p-6">
+        <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
+          <span className="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-cyan-500"></span>
+          {isZh ? '背景设置' : 'Background Settings'}
+        </h2>
+
+        {/* Background Type Selection */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+          {BACKGROUND_OPTIONS.map((option) => (
+            <button
+              key={option.type}
+              onClick={() => handleBackgroundTypeChange(option.type)}
+              className={`
+                p-3 rounded-xl border-2 transition-all text-center
+                ${background.type === option.type 
+                  ? 'border-blue-500 bg-blue-500/10' 
+                  : 'border-white/10 hover:border-white/30 bg-white/5'
+                }
+              `}
+            >
+              <div className="text-2xl mb-1">{option.icon}</div>
+              <div className="text-xs font-medium text-white">
+                {isZh ? option.nameZh : option.name}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Background Type Specific Settings */}
+        {background.type === 'custom' && (
+          <div className="space-y-3 mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+            <label className="block text-sm font-medium text-gray-300">
+              {isZh ? '图片 URL' : 'Image URL'}
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={customUrl}
+                onChange={(e) => setCustomUrl(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
+              />
+              <button
+                onClick={handleApplyCustomUrl}
+                className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors"
+              >
+                {isZh ? '应用' : 'Apply'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {background.type === 'unsplash' && (
+          <div className="space-y-4 mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {isZh ? '快速选择' : 'Quick Select'}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {UNSPLASH_PRESETS.map((preset) => (
+                  <button
+                    key={preset.query}
+                    onClick={() => handleApplyUnsplash(preset.query)}
+                    className={`
+                      px-3 py-1.5 rounded-full text-xs font-medium transition-all
+                      ${unsplashQuery === preset.query 
+                        ? 'bg-blue-500 text-white' 
+                        : 'bg-white/10 text-gray-300 hover:bg-white/20'
+                      }
+                    `}
+                  >
+                    {isZh ? preset.labelZh : preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {isZh ? '自定义关键词' : 'Custom Keywords'}
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={unsplashQuery}
+                  onChange={(e) => setUnsplashQuery(e.target.value)}
+                  placeholder="nature,landscape"
+                  className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
+                />
+                <button
+                  onClick={() => handleApplyUnsplash()}
+                  className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors"
+                >
+                  {isZh ? '应用' : 'Apply'}
+                </button>
+                <button
+                  onClick={refreshBackground}
+                  className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+                  title={isZh ? '换一张' : 'Refresh'}
+                >
+                  🔄
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {background.type === 'solid' && (
+          <div className="space-y-3 mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+            <label className="block text-sm font-medium text-gray-300">
+              {isZh ? '选择颜色' : 'Select Color'}
+            </label>
+            <div className="flex gap-3 items-center">
+              <input
+                type="color"
+                value={solidColor}
+                onChange={(e) => setSolidColor(e.target.value)}
+                className="w-12 h-12 rounded-lg cursor-pointer border-0"
+              />
+              <input
+                type="text"
+                value={solidColor}
+                onChange={(e) => setSolidColor(e.target.value)}
+                className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50 font-mono"
+              />
+              <button
+                onClick={handleApplySolidColor}
+                className="px-4 py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium transition-colors"
+              >
+                {isZh ? '应用' : 'Apply'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {background.type === 'bing' && (
+          <div className="mb-6 p-4 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium text-white">
+                  {isZh ? 'Bing 每日壁纸' : 'Bing Daily Wallpaper'}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {isZh ? '每天自动更新微软 Bing 精选壁纸' : 'Automatically updates with Microsoft Bing featured wallpaper daily'}
+                </div>
+              </div>
+              <button
+                onClick={refreshBackground}
+                className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors"
+              >
+                🔄 {isZh ? '刷新' : 'Refresh'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Background Adjustments */}
+        {(background.type === 'bing' || background.type === 'unsplash' || background.type === 'custom') && (
+          <div className="space-y-4 p-4 rounded-lg bg-white/5 border border-white/10">
+            <div className="text-sm font-medium text-gray-300 mb-2">
+              {isZh ? '背景调整' : 'Background Adjustments'}
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>{isZh ? '模糊程度' : 'Blur'}</span>
+                  <span>{bgBlur}px</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="30"
+                  value={bgBlur}
+                  onChange={(e) => handleBlurChange(Number(e.target.value))}
+                  className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+              
+              <div>
+                <div className="flex justify-between text-xs text-gray-400 mb-1">
+                  <span>{isZh ? '遮罩透明度' : 'Overlay Opacity'}</span>
+                  <span>{100 - bgOpacity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={bgOpacity}
+                  onChange={(e) => handleOpacityChange(Number(e.target.value))}
+                  className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Background Preview */}
+        {backgroundUrl && (
+          <div className="mt-4">
+            <div className="text-xs text-gray-400 mb-2">{isZh ? '当前背景预览' : 'Current Background Preview'}</div>
+            <div 
+              className="w-full h-32 rounded-lg bg-cover bg-center relative overflow-hidden"
+              style={{ 
+                backgroundImage: `url(${backgroundUrl})`,
+                filter: `blur(${bgBlur}px)`
+              }}
+            >
+              <div 
+                className="absolute inset-0 bg-black"
+                style={{ opacity: (100 - bgOpacity) / 100 }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -2318,7 +2705,7 @@ export default function Settings() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <div className="text-xs text-gray-500 font-mono">ID: {server.id.slice(0, 8)}...</div>
+                          <div className="text-xs text-gray-700 dark:text-gray-500 font-mono">ID: {server.id.slice(0, 8)}...</div>
                           {server.ip && (
                             <span className="text-xs text-cyan-400 font-mono">{server.ip}</span>
                           )}
@@ -2565,6 +2952,9 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      {/* Theme Settings Section */}
+      <ThemeSettingsSection />
 
       {/* Version Info Section */}
       <div className="nezha-card p-6 mb-6">

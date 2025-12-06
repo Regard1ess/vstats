@@ -927,8 +927,7 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { servers, groupDimensions, siteSettings, isInitialLoad } = useServerManager();
-  const { theme, toggleTheme } = useTheme();
-  const isDark = theme === 'dark';
+  const { isDark, backgroundUrl, background } = useTheme();
   const themeClass = isDark ? 'dark' : 'light';
   
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -1043,22 +1042,45 @@ export default function Dashboard() {
 
   return (
     <div className={`vps-page vps-page--${themeClass}`}>
-      {/* Background Blobs */}
-      <div className="vps-page-blobs">
-        {isDark ? (
-          <>
-            <div className="vps-blobs-dark-1" />
-            <div className="vps-blobs-dark-2" />
-            <div className="vps-blobs-dark-3" />
-          </>
-        ) : (
-          <>
-            <div className="vps-blobs-light-1" />
-            <div className="vps-blobs-light-2" />
-            <div className="vps-blobs-light-3" />
-          </>
-        )}
-      </div>
+      {/* Background Image Layer */}
+      {backgroundUrl && (
+        <>
+          <div 
+            className="bg-image-layer"
+            style={{ 
+              backgroundImage: `url(${backgroundUrl})`,
+              filter: `blur(${background.blur || 0}px)`,
+              transform: 'scale(1.1)' // Prevent blur edges from showing
+            }}
+          />
+          <div 
+            className="bg-overlay"
+            style={{ 
+              backgroundColor: isDark ? '#000000' : '#ffffff',
+              opacity: (100 - (background.opacity || 100)) / 100
+            }}
+          />
+        </>
+      )}
+      
+      {/* Background Blobs (only show if no background image) */}
+      {!backgroundUrl && (
+        <div className="vps-page-blobs">
+          {isDark ? (
+            <>
+              <div className="vps-blobs-dark-1" />
+              <div className="vps-blobs-dark-2" />
+              <div className="vps-blobs-dark-3" />
+            </>
+          ) : (
+            <>
+              <div className="vps-blobs-light-1" />
+              <div className="vps-blobs-light-2" />
+              <div className="vps-blobs-light-3" />
+            </>
+          )}
+        </div>
+      )}
 
       <div className="vps-page-inner flex flex-col gap-6">
         {/* Header */}
@@ -1097,22 +1119,6 @@ export default function Dashboard() {
             </button>
             {/* Language Switcher */}
             <LanguageSwitcher isDark={isDark} />
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className={`vps-btn ${isDark ? 'vps-btn-outline-dark' : 'vps-btn-outline-light'} p-2.5`}
-              title={t('dashboard.switchTheme', { mode: isDark ? t('dashboard.lightMode') : t('dashboard.darkMode') })}
-            >
-              {isDark ? (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
             <button
               onClick={() => navigate('/settings')}
               className={`vps-btn ${isDark ? 'vps-btn-outline-dark' : 'vps-btn-outline-light'} p-2.5`}
