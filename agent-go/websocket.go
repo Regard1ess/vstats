@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -235,10 +236,14 @@ func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string, force bool) 
 			latestVersion = *latest
 			
 			// Skip update if already on latest version (unless force is true)
-			if !force && latestVersion == AgentVersion {
+			// Compare versions without 'v' prefix
+			latestVersionClean := strings.TrimPrefix(latestVersion, "v")
+			currentVersionClean := strings.TrimPrefix(AgentVersion, "v")
+			if !force && latestVersionClean == currentVersionClean {
 				log.Printf("Already on latest version %s, skipping update", AgentVersion)
 				return
 			}
+			log.Printf("Update available: current=%s, latest=%s", AgentVersion, latestVersion)
 		}
 		
 		// Build GitHub Releases download URL
@@ -375,10 +380,6 @@ func fetchLatestGitHubVersion(owner, repo string) (*string, error) {
 		return nil, fmt.Errorf("no tag_name in response")
 	}
 
-	// Remove 'v' prefix if present
-	if len(tagName) > 0 && tagName[0] == 'v' {
-		tagName = tagName[1:]
-	}
-
+	// Keep the original tag name (with 'v' prefix) for download URL
 	return &tagName, nil
 }
