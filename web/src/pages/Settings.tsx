@@ -94,6 +94,10 @@ export default function Settings() {
   const [agentStatus, setAgentStatus] = useState<Record<string, boolean>>({});
   const [updatingAgents, setUpdatingAgents] = useState<Record<string, boolean>>({});
   
+  // Batch update all agents
+  const [batchUpdating, setBatchUpdating] = useState(false);
+  const [batchUpdateProgress, setBatchUpdateProgress] = useState<{ current: number; total: number; currentServer: string }>({ current: 0, total: 0, currentServer: '' });
+  
   // Site settings
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
     site_name: '',
@@ -258,7 +262,7 @@ export default function Settings() {
     }
   };
   
-  const updateAgent = async (serverId: string) => {
+  const updateAgent = async (serverId: string, force: boolean = false) => {
     setUpdatingAgents(prev => ({ ...prev, [serverId]: true }));
     
     try {
@@ -268,13 +272,13 @@ export default function Settings() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({})
+        body: JSON.stringify({ force })
       });
       
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          showToast(t('settings.updateSent'), 'success');
+          showToast(force ? '强制升级命令已发送' : t('settings.updateSent'), 'success');
         } else {
           showToast(`${t('settings.updateFailed')}: ${data.message}`, 'error');
         }
@@ -287,6 +291,70 @@ export default function Settings() {
     }
     
     setUpdatingAgents(prev => ({ ...prev, [serverId]: false }));
+  };
+  
+  // Batch update all online agents sequentially
+  const updateAllAgents = async (force: boolean = false) => {
+    // Get all online agents
+    const onlineServers = servers.filter(server => agentStatus[server.id]);
+    
+    if (onlineServers.length === 0) {
+      showToast('没有在线的 Agent 可以升级', 'error');
+      return;
+    }
+    
+    setBatchUpdating(true);
+    setBatchUpdateProgress({ current: 0, total: onlineServers.length, currentServer: '' });
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (let i = 0; i < onlineServers.length; i++) {
+      const server = onlineServers[i];
+      setBatchUpdateProgress({ current: i + 1, total: onlineServers.length, currentServer: server.name });
+      setUpdatingAgents(prev => ({ ...prev, [server.id]: true }));
+      
+      try {
+        const res = await fetch(`/api/servers/${server.id}/update`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ force })
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success) {
+            successCount++;
+          } else {
+            failCount++;
+          }
+        } else {
+          failCount++;
+        }
+      } catch (e) {
+        console.error(`Failed to update agent ${server.name}`, e);
+        failCount++;
+      }
+      
+      setUpdatingAgents(prev => ({ ...prev, [server.id]: false }));
+      
+      // Wait a bit between updates to avoid overwhelming the system
+      if (i < onlineServers.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+    
+    setBatchUpdating(false);
+    setBatchUpdateProgress({ current: 0, total: 0, currentServer: '' });
+    
+    if (failCount === 0) {
+      showToast(`成功发送升级命令给 ${successCount} 个 Agent`, 'success');
+    } else {
+      showToast(`升级完成：${successCount} 成功，${failCount} 失败`, failCount > 0 ? 'error' : 'success');
+    }
   };
   
   const fetchSiteSettings = async () => {
@@ -2152,7 +2220,84 @@ export default function Settings() {
               <p className="text-sm mt-1">Install the agent on a server using the command above</p>
             </div>
           ) : (
-            servers.map((server) => {
+            <>
+              {/* Batch Update Header */}
+              <div className="flex items-center justify-between mb-4 p-3 rounded-lg bg-white/[0.02] border border-white/5">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-400">
+                    {servers.length} 个 Agent · {Object.values(agentStatus).filter(Boolean).length} 在线
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => updateAllAgents(false)}
+                    disabled={batchUpdating || Object.values(agentStatus).filter(Boolean).length === 0}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                      batchUpdating
+                        ? 'bg-cyan-500/20 text-cyan-400 cursor-wait'
+                        : Object.values(agentStatus).filter(Boolean).length === 0
+                        ? 'bg-gray-500/10 text-gray-600 cursor-not-allowed'
+                        : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:border-cyan-500/50'
+                    }`}
+                  >
+                    {batchUpdating ? (
+                      <>
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        <span>升级中 ({batchUpdateProgress.current}/{batchUpdateProgress.total})</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        <span>升级所有</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => updateAllAgents(true)}
+                    disabled={batchUpdating || Object.values(agentStatus).filter(Boolean).length === 0}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
+                      batchUpdating
+                        ? 'bg-amber-500/20 text-amber-400 cursor-wait'
+                        : Object.values(agentStatus).filter(Boolean).length === 0
+                        ? 'bg-gray-500/10 text-gray-600 cursor-not-allowed'
+                        : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:border-amber-500/50'
+                    }`}
+                    title="强制升级会忽略版本检查，重新下载并安装最新版本"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>强制升级</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* Batch Update Progress */}
+              {batchUpdating && (
+                <div className="mb-4 p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-cyan-400">
+                      正在升级: <span className="font-medium">{batchUpdateProgress.currentServer}</span>
+                    </span>
+                    <span className="text-xs text-cyan-400/70">
+                      {batchUpdateProgress.current} / {batchUpdateProgress.total}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-cyan-500/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-cyan-500 rounded-full transition-all duration-500"
+                      style={{ width: `${(batchUpdateProgress.current / batchUpdateProgress.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              
+              {servers.map((server) => {
               const isOnline = agentStatus[server.id] || false;
               const isUpdating = updatingAgents[server.id] || false;
               
@@ -2204,18 +2349,30 @@ export default function Settings() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      {/* Update Button */}
+                      {/* Update Buttons */}
                       <button
-                        onClick={() => updateAgent(server.id)}
+                        onClick={() => updateAgent(server.id, false)}
                         disabled={!isOnline || isUpdating}
                         className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
                           isOnline && !isUpdating
                             ? 'hover:bg-cyan-500/10 text-gray-500 hover:text-cyan-400 border border-transparent hover:border-cyan-500/30'
                             : 'text-gray-600 cursor-not-allowed'
                         }`}
-                        title={isOnline ? '升级 Agent' : 'Agent 离线'}
+                        title={isOnline ? '升级 Agent（如果已是最新版本会跳过）' : 'Agent 离线'}
                       >
                         {isUpdating ? '升级中...' : '升级'}
+                      </button>
+                      <button
+                        onClick={() => updateAgent(server.id, true)}
+                        disabled={!isOnline || isUpdating}
+                        className={`px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                          isOnline && !isUpdating
+                            ? 'hover:bg-amber-500/10 text-gray-500 hover:text-amber-400 border border-transparent hover:border-amber-500/30'
+                            : 'text-gray-600 cursor-not-allowed'
+                        }`}
+                        title={isOnline ? '强制升级（忽略版本检查，重新下载安装）' : 'Agent 离线'}
+                      >
+                        强制
                       </button>
                       <button
                         onClick={() => deleteServer(server.id)}
@@ -2403,7 +2560,8 @@ export default function Settings() {
                   )}
                 </div>
               );
-            })
+            })}
+            </>
           )}
         </div>
       </div>

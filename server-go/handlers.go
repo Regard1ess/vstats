@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -796,7 +797,35 @@ func (s *AppState) UpdateProbeSettings(c *gin.Context) {
 	localCollector := GetLocalCollector()
 	localCollector.SetPingTargets(settings.PingTargets)
 
+	// Broadcast new ping targets to all connected agents
+	s.BroadcastPingTargets(settings.PingTargets)
+
 	c.Status(http.StatusOK)
+}
+
+// BroadcastPingTargets sends updated ping targets to all connected agents
+func (s *AppState) BroadcastPingTargets(targets []PingTargetConfig) {
+	msg := map[string]interface{}{
+		"type":         "config",
+		"ping_targets": targets,
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal ping targets: %v", err)
+		return
+	}
+
+	s.AgentConnsMu.RLock()
+	defer s.AgentConnsMu.RUnlock()
+
+	for serverID, conn := range s.AgentConns {
+		select {
+		case conn.SendChan <- data:
+			log.Printf("Sent ping targets update to agent %s", serverID)
+		default:
+			log.Printf("Failed to send ping targets to agent %s (channel full)", serverID)
+		}
+	}
 }
 
 // ============================================================================
@@ -1540,6 +1569,7 @@ func (s *AppState) UpdateAgent(c *gin.Context) {
 		Type:        "command",
 		Command:     "update",
 		DownloadURL: req.DownloadURL,
+		Force:       req.Force,
 	}
 
 	data, _ := json.Marshal(cmd)

@@ -123,11 +123,12 @@ type MetricsMessage struct {
 }
 
 type ServerResponse struct {
-	Type        string            `json:"type"`
-	Status      string            `json:"status,omitempty"`
-	Message     string            `json:"message,omitempty"`
-	Command     string            `json:"command,omitempty"`
-	DownloadURL string            `json:"download_url,omitempty"`
+	Type        string             `json:"type"`
+	Status      string             `json:"status,omitempty"`
+	Message     string             `json:"message,omitempty"`
+	Command     string             `json:"command,omitempty"`
+	DownloadURL string             `json:"download_url,omitempty"`
+	Force       bool               `json:"force,omitempty"`
 	PingTargets []PingTargetConfig `json:"ping_targets,omitempty"`
 }
 

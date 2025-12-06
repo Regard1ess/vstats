@@ -142,8 +142,21 @@ func (wsc *WebSocketClient) connectAndRun() error {
 				log.Printf("Server error: %s", response.Message)
 			case "command":
 				if response.Command == "update" {
-					log.Println("Received update command from server")
-					wsc.handleUpdateCommand(response.DownloadURL)
+					if response.Force {
+						log.Println("Received FORCE update command from server")
+					} else {
+						log.Println("Received update command from server")
+					}
+					wsc.handleUpdateCommand(response.DownloadURL, response.Force)
+				}
+			case "config":
+				// Handle runtime config update (e.g., ping targets)
+				if len(response.PingTargets) > 0 {
+					log.Printf("Received updated ping targets from server: %d targets", len(response.PingTargets))
+					wsc.collector.SetPingTargets(response.PingTargets)
+				} else {
+					log.Println("Received config update: clearing ping targets")
+					wsc.collector.SetPingTargets(nil)
 				}
 			}
 		}
@@ -179,8 +192,12 @@ func (wsc *WebSocketClient) connectAndRun() error {
 	}
 }
 
-func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string) {
-	log.Println("Starting self-update process...")
+func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string, force bool) {
+	if force {
+		log.Println("Starting FORCE self-update process (will update regardless of version)...")
+	} else {
+		log.Println("Starting self-update process...")
+	}
 
 	// Get the current executable path
 	currentExe, err := os.Executable()
@@ -189,8 +206,9 @@ func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string) {
 		return
 	}
 
-	// Determine download URL
+	// Determine download URL and check version
 	url := downloadURL
+	var latestVersion string
 	if url == "" {
 		// Build GitHub Releases URL based on OS and architecture
 		osName := runtime.GOOS
@@ -212,9 +230,15 @@ func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string) {
 		}
 		
 		// Try to get latest version from GitHub API
-		latestVersion := "latest"
+		latestVersion = "latest"
 		if latest, err := fetchLatestGitHubVersion("zsai001", "vstats"); err == nil && latest != nil {
 			latestVersion = *latest
+			
+			// Skip update if already on latest version (unless force is true)
+			if !force && latestVersion == AgentVersion {
+				log.Printf("Already on latest version %s, skipping update", AgentVersion)
+				return
+			}
 		}
 		
 		// Build GitHub Releases download URL
@@ -222,6 +246,10 @@ func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string) {
 		log.Printf("No download URL provided, using GitHub Releases: %s", url)
 	} else {
 		log.Printf("Using provided download URL: %s", url)
+	}
+	
+	if force {
+		log.Printf("Force update enabled, current version: %s", AgentVersion)
 	}
 
 	log.Printf("Downloading update from: %s", url)
@@ -266,11 +294,26 @@ func (wsc *WebSocketClient) handleUpdateCommand(downloadURL string) {
 
 	log.Println("Update installed successfully! Restarting...")
 
-	// Restart the agent
+	// Restart the agent using systemd-run to avoid being killed by cgroup
 	if runtime.GOOS == "linux" {
-		// Use systemctl if available
-		exec.Command("systemctl", "restart", "vstats-agent").Start()
+		// Use systemd-run --no-block to run restart in an independent transient unit
+		// This prevents the restart command from being killed when vstats-agent stops
+		cmd := exec.Command("systemd-run", "--no-block", "systemctl", "restart", "vstats-agent")
+		if err := cmd.Start(); err != nil {
+			log.Printf("Failed to schedule restart via systemd-run: %v", err)
+			// Fallback to direct systemctl (may not work in all cases)
+			exec.Command("systemctl", "restart", "vstats-agent").Start()
+		} else {
+			log.Println("Restart scheduled via systemd-run")
+		}
+	} else if runtime.GOOS == "windows" {
+		// On Windows, use sc.exe to restart the service
+		cmd := exec.Command("cmd", "/C", "sc", "stop", "vstats-agent", "&&", "timeout", "/t", "2", "&&", "sc", "start", "vstats-agent")
+		cmd.Start()
 	}
+
+	// Give systemd-run a moment to register the restart command
+	time.Sleep(500 * time.Millisecond)
 
 	// Exit to allow restart
 	os.Exit(0)

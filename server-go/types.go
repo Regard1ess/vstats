@@ -412,10 +412,12 @@ type AgentCommand struct {
 	Type        string `json:"type"`
 	Command     string `json:"command"`
 	DownloadURL string `json:"download_url,omitempty"`
+	Force       bool   `json:"force,omitempty"`
 }
 
 type UpdateAgentRequest struct {
 	DownloadURL string `json:"download_url,omitempty"`
+	Force       bool   `json:"force,omitempty"`
 }
 
 type UpdateAgentResponse struct {
