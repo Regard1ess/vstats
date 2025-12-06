@@ -1607,6 +1607,230 @@ body {
   border-color: rgba(16, 185, 129, 0.35);
 }
 
+/* ========================================
+   Theme-specific vps-overview-card styles
+   ======================================== */
+
+/* Midnight (午夜科技) - Dark */
+.theme-midnight .vps-overview-card--online-midnight {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(52, 211, 153, 0.08));
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+.theme-midnight .vps-overview-card--offline-midnight {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.18), rgba(248, 113, 113, 0.08));
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.theme-midnight .vps-overview-card--download-midnight {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.18), rgba(96, 165, 250, 0.08));
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.theme-midnight .vps-overview-card--upload-midnight {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.18), rgba(52, 211, 153, 0.08));
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+/* Daylight (晴空日光) - Light */
+.theme-daylight .vps-overview-card--online-daylight {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.06));
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.theme-daylight .vps-overview-card--offline-daylight {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(248, 113, 113, 0.06));
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.theme-daylight .vps-overview-card--download-daylight {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(96, 165, 250, 0.06));
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.theme-daylight .vps-overview-card--upload-daylight {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(52, 211, 153, 0.06));
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+/* Cyberpunk (赛博朋克) - Dark */
+.theme-cyberpunk .vps-overview-card--online-cyberpunk {
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(255, 0, 255, 0.08));
+  border: 2px solid;
+  border-image: linear-gradient(135deg, #00ffff, #10b981) 1;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.theme-cyberpunk .vps-overview-card--offline-cyberpunk {
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.15), rgba(255, 68, 68, 0.08));
+  border: 2px solid;
+  border-image: linear-gradient(135deg, #ff00ff, #ef4444) 1;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.3);
+}
+
+.theme-cyberpunk .vps-overview-card--download-cyberpunk {
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(59, 130, 246, 0.08));
+  border: 2px solid;
+  border-image: linear-gradient(135deg, #00ffff, #3b82f6) 1;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+.theme-cyberpunk .vps-overview-card--upload-cyberpunk {
+  background: linear-gradient(135deg, rgba(0, 255, 255, 0.15), rgba(16, 185, 129, 0.08));
+  border: 2px solid;
+  border-image: linear-gradient(135deg, #00ffff, #10b981) 1;
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+}
+
+/* Terminal (黑客终端) - Dark */
+.theme-terminal .vps-overview-card--online-terminal {
+  background: rgba(0, 255, 65, 0.08);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+}
+
+.theme-terminal .vps-overview-card--offline-terminal {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+
+.theme-terminal .vps-overview-card--download-terminal {
+  background: rgba(0, 255, 65, 0.08);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+}
+
+.theme-terminal .vps-overview-card--upload-terminal {
+  background: rgba(0, 255, 65, 0.08);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 65, 0.2);
+}
+
+/* Glassmorphism (毛玻璃) - Dark */
+.theme-glassmorphism .vps-overview-card--online-glassmorphism {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(52, 211, 153, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.theme-glassmorphism .vps-overview-card--offline-glassmorphism {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(248, 113, 113, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.theme-glassmorphism .vps-overview-card--download-glassmorphism {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(96, 165, 250, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.theme-glassmorphism .vps-overview-card--upload-glassmorphism {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(52, 211, 153, 0.08));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Neumorphism (新拟态) - Light */
+.theme-neumorphism .vps-overview-card--online-neumorphism {
+  background: #e0e5ec;
+  border: none;
+  box-shadow: 
+    6px 6px 12px rgba(163, 177, 198, 0.6),
+    -6px -6px 12px rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.theme-neumorphism .vps-overview-card--offline-neumorphism {
+  background: #e0e5ec;
+  border: none;
+  box-shadow: 
+    6px 6px 12px rgba(163, 177, 198, 0.6),
+    -6px -6px 12px rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.theme-neumorphism .vps-overview-card--download-neumorphism {
+  background: #e0e5ec;
+  border: none;
+  box-shadow: 
+    6px 6px 12px rgba(163, 177, 198, 0.6),
+    -6px -6px 12px rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.theme-neumorphism .vps-overview-card--upload-neumorphism {
+  background: #e0e5ec;
+  border: none;
+  box-shadow: 
+    6px 6px 12px rgba(163, 177, 198, 0.6),
+    -6px -6px 12px rgba(255, 255, 255, 0.8),
+    inset 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+/* Brutalist (野兽派) - Light */
+.theme-brutalist .vps-overview-card--online-brutalist {
+  background: #ffffff;
+  border: 3px solid #10b981;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 #10b981;
+}
+
+.theme-brutalist .vps-overview-card--offline-brutalist {
+  background: #ffffff;
+  border: 3px solid #ef4444;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 #ef4444;
+}
+
+.theme-brutalist .vps-overview-card--download-brutalist {
+  background: #ffffff;
+  border: 3px solid #3b82f6;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 #3b82f6;
+}
+
+.theme-brutalist .vps-overview-card--upload-brutalist {
+  background: #ffffff;
+  border: 3px solid #10b981;
+  border-radius: 0;
+  box-shadow: 6px 6px 0 #10b981;
+}
+
+/* Minimal (极简禅意) - Light */
+.theme-minimal .vps-overview-card--online-minimal {
+  background: #ffffff;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.theme-minimal .vps-overview-card--offline-minimal {
+  background: #ffffff;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.theme-minimal .vps-overview-card--download-minimal {
+  background: #ffffff;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.theme-minimal .vps-overview-card--upload-minimal {
+  background: #ffffff;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
 .vps-overview-label {
   font-size: 10px;
   font-weight: 700;
@@ -1620,17 +1844,37 @@ body {
 .vps-overview-label--download { color: #3b82f6; }
 .vps-overview-label--upload { color: #10b981; }
 
+/* Theme-specific label colors */
+.theme-cyberpunk .vps-overview-label--online { color: #00ffff; }
+.theme-cyberpunk .vps-overview-label--offline { color: #ff00ff; }
+.theme-cyberpunk .vps-overview-label--download { color: #00ffff; }
+.theme-cyberpunk .vps-overview-label--upload { color: #00ffff; }
+
+.theme-terminal .vps-overview-label--online { color: #00ff41; }
+.theme-terminal .vps-overview-label--offline { color: #ef4444; }
+.theme-terminal .vps-overview-label--download { color: #00ff41; }
+.theme-terminal .vps-overview-label--upload { color: #00ff41; }
+
+.theme-brutalist .vps-overview-label--online { color: #000000; }
+.theme-brutalist .vps-overview-label--offline { color: #000000; }
+.theme-brutalist .vps-overview-label--download { color: #000000; }
+.theme-brutalist .vps-overview-label--upload { color: #000000; }
+
 .vps-overview-value {
   font-size: 1.5rem;
   font-weight: 700;
 }
 
-.vps-overview-value--light {
-  color: var(--text-main-light);
-}
-
-.vps-overview-value--dark {
-  color: var(--text-main-dark);
+.vps-overview-value--light,
+.vps-overview-value--midnight,
+.vps-overview-value--cyberpunk,
+.vps-overview-value--terminal,
+.vps-overview-value--glassmorphism,
+.vps-overview-value--daylight,
+.vps-overview-value--neumorphism,
+.vps-overview-value--brutalist,
+.vps-overview-value--minimal {
+  color: var(--text-primary);
 }
 
 /* ========================================
@@ -1680,6 +1924,108 @@ body {
 .light-theme .glass-card:hover {
   background: rgba(255, 255, 255, 0.75);
   border-color: rgba(255, 255, 255, 0.8);
+}
+
+/* ========================================
+   Server Detail Page Theme Support
+   ======================================== */
+
+/* Server Detail Page Theme Support */
+/* Override hardcoded text colors with theme-aware colors */
+.server-detail h1,
+.server-detail h2,
+.server-detail .text-white {
+  color: var(--text-primary);
+}
+
+.server-detail .text-gray-400,
+.server-detail .text-gray-500 {
+  color: var(--text-muted);
+}
+
+.server-detail .text-gray-300 {
+  color: var(--text-tertiary);
+}
+
+.server-detail .text-gray-600 {
+  color: var(--text-secondary);
+}
+
+.server-detail .text-gray-900 {
+  color: var(--text-primary);
+}
+
+/* Theme-specific overrides for server detail page */
+.theme-brutalist .server-detail h1,
+.theme-brutalist .server-detail h2,
+.theme-brutalist .server-detail .text-white {
+  color: #000000;
+}
+
+.theme-brutalist .server-detail .text-gray-400,
+.theme-brutalist .server-detail .text-gray-500,
+.theme-brutalist .server-detail .text-gray-300 {
+  color: #666666;
+}
+
+.theme-brutalist .server-detail .text-gray-600,
+.theme-brutalist .server-detail .text-gray-900 {
+  color: #000000;
+}
+
+/* Badge and chip styles - use theme colors */
+.server-detail .bg-emerald-500\/10,
+.server-detail .bg-cyan-500\/10,
+.server-detail .bg-blue-500\/10,
+.server-detail .bg-purple-500\/10,
+.server-detail .bg-amber-500\/10 {
+  background-color: var(--theme-accent-soft);
+}
+
+.server-detail .border-emerald-500\/20,
+.server-detail .border-cyan-500\/20,
+.server-detail .border-blue-500\/20,
+.server-detail .border-purple-500\/20,
+.server-detail .border-amber-500\/20 {
+  border-color: var(--border-primary);
+}
+
+/* Terminal theme specific - green glow */
+.theme-terminal .server-detail h1,
+.theme-terminal .server-detail h2 {
+  text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+}
+
+.theme-terminal .server-detail .text-emerald-400,
+.theme-terminal .server-detail .text-emerald-500,
+.theme-terminal .server-detail .text-cyan-300,
+.theme-terminal .server-detail .text-blue-300 {
+  color: #00ff41;
+}
+
+/* Cyberpunk theme specific - neon colors */
+.theme-cyberpunk .server-detail .text-emerald-400,
+.theme-cyberpunk .server-detail .text-emerald-500 {
+  color: #00ffff;
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+}
+
+.theme-cyberpunk .server-detail .text-cyan-300,
+.theme-cyberpunk .server-detail .text-blue-300 {
+  color: #00ffff;
+}
+
+/* Neumorphism and minimal themes - softer colors */
+.theme-neumorphism .server-detail .bg-gradient-to-br {
+  background: #e0e5ec;
+  box-shadow: 
+    inset 6px 6px 12px rgba(163, 177, 198, 0.5),
+    inset -6px -6px 12px rgba(255, 255, 255, 0.7);
+}
+
+.theme-minimal .server-detail .bg-gradient-to-br {
+  background: #ffffff;
+  border: 1px solid var(--border-secondary);
 }
 
 /* Status pills for legacy support */
@@ -2908,4 +3254,336 @@ button:active {
   .vps-compact-col--cpu::before { content: 'CPU: '; opacity: 0.5; font-size: 10px; }
   .vps-compact-col--mem::before { content: 'MEM: '; opacity: 0.5; font-size: 10px; }
   .vps-compact-col--hdd::before { content: 'HDD: '; opacity: 0.5; font-size: 10px; }
+}
+
+/* ========================================
+   Theme-specific vps-compact-table styles
+   ======================================== */
+
+/* Midnight (午夜科技) - Dark */
+.theme-midnight .vps-compact-header--midnight {
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.theme-midnight .vps-compact-row--midnight {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+.theme-midnight .vps-compact-row--midnight:hover {
+  background: rgba(30, 41, 59, 0.6);
+}
+
+.theme-midnight .vps-compact-node-name--midnight {
+  color: var(--text-primary);
+}
+
+.theme-midnight .vps-compact-node-location--midnight {
+  color: var(--text-muted);
+}
+
+.theme-midnight .vps-compact-text--midnight {
+  color: var(--text-tertiary);
+}
+
+.theme-midnight .vps-compact-meter--midnight {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.theme-midnight .vps-compact-meter-text--midnight {
+  color: var(--text-primary);
+}
+
+/* Daylight (晴空日光) - Light */
+.theme-daylight .vps-compact-header--daylight {
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.theme-daylight .vps-compact-row--daylight {
+  background: rgba(255, 255, 255, 0.5);
+  border-color: rgba(0, 0, 0, 0.04);
+}
+
+.theme-daylight .vps-compact-row--daylight:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.theme-daylight .vps-compact-node-name--daylight {
+  color: var(--text-primary);
+}
+
+.theme-daylight .vps-compact-node-location--daylight {
+  color: var(--text-muted);
+}
+
+.theme-daylight .vps-compact-text--daylight {
+  color: var(--text-secondary);
+}
+
+.theme-daylight .vps-compact-meter--daylight {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.theme-daylight .vps-compact-meter-text--daylight {
+  color: var(--text-primary);
+}
+
+/* Cyberpunk (赛博朋克) - Dark */
+.theme-cyberpunk .vps-compact-header--cyberpunk {
+  background: linear-gradient(135deg, rgba(255, 0, 255, 0.1), rgba(0, 255, 255, 0.05));
+  color: #a0a0c0;
+  border-bottom: 2px solid;
+  border-image: linear-gradient(90deg, #ff00ff, #00ffff) 1;
+}
+
+.theme-cyberpunk .vps-compact-row--cyberpunk {
+  background: linear-gradient(135deg, rgba(20, 20, 35, 0.8), rgba(10, 10, 20, 0.8));
+  border-bottom: 1px solid rgba(255, 0, 255, 0.2);
+  position: relative;
+}
+
+.theme-cyberpunk .vps-compact-row--cyberpunk:hover {
+  background: linear-gradient(135deg, rgba(30, 30, 50, 0.9), rgba(15, 15, 30, 0.9));
+  box-shadow: 0 0 15px rgba(255, 0, 255, 0.3);
+}
+
+.theme-cyberpunk .vps-compact-node-name--cyberpunk {
+  color: #ffffff;
+  text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+}
+
+.theme-cyberpunk .vps-compact-node-location--cyberpunk {
+  color: #a0a0c0;
+}
+
+.theme-cyberpunk .vps-compact-text--cyberpunk {
+  color: #b0b0d0;
+}
+
+.theme-cyberpunk .vps-compact-meter--cyberpunk {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 0, 255, 0.3);
+}
+
+.theme-cyberpunk .vps-compact-meter-text--cyberpunk {
+  color: #ffffff;
+}
+
+/* Terminal (黑客终端) - Dark */
+.theme-terminal .vps-compact-header--terminal {
+  background: rgba(0, 0, 0, 0.5);
+  color: #00aa2c;
+  border-bottom: 1px solid rgba(0, 255, 65, 0.3);
+  font-family: 'Fira Code', monospace;
+}
+
+.theme-terminal .vps-compact-row--terminal {
+  background: rgba(5, 5, 5, 0.8);
+  border-bottom: 1px solid rgba(0, 255, 65, 0.2);
+  font-family: 'Fira Code', monospace;
+}
+
+.theme-terminal .vps-compact-row--terminal:hover {
+  background: rgba(10, 10, 10, 0.9);
+  box-shadow: 0 0 10px rgba(0, 255, 65, 0.3);
+}
+
+.theme-terminal .vps-compact-node-name--terminal {
+  color: #00ff41;
+  text-shadow: 0 0 5px rgba(0, 255, 65, 0.5);
+}
+
+.theme-terminal .vps-compact-node-location--terminal {
+  color: #00aa2c;
+}
+
+.theme-terminal .vps-compact-text--terminal {
+  color: #00dd38;
+}
+
+.theme-terminal .vps-compact-meter--terminal {
+  background: rgba(0, 255, 65, 0.1);
+  border: 1px solid rgba(0, 255, 65, 0.3);
+}
+
+.theme-terminal .vps-compact-meter-text--terminal {
+  color: #00ff41;
+}
+
+/* Glassmorphism (毛玻璃) - Dark */
+.theme-glassmorphism .vps-compact-header--glassmorphism {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.theme-glassmorphism .vps-compact-row--glassmorphism {
+  background: rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+.theme-glassmorphism .vps-compact-row--glassmorphism:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.theme-glassmorphism .vps-compact-node-name--glassmorphism {
+  color: #ffffff;
+}
+
+.theme-glassmorphism .vps-compact-node-location--glassmorphism {
+  color: var(--text-muted);
+}
+
+.theme-glassmorphism .vps-compact-text--glassmorphism {
+  color: var(--text-tertiary);
+}
+
+.theme-glassmorphism .vps-compact-meter--glassmorphism {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.theme-glassmorphism .vps-compact-meter-text--glassmorphism {
+  color: #ffffff;
+}
+
+/* Neumorphism (新拟态) - Light */
+.theme-neumorphism .vps-compact-header--neumorphism {
+  background: #e0e5ec;
+  color: var(--text-muted);
+  border-bottom: none;
+  box-shadow: 
+    inset 0 -1px 0 rgba(163, 177, 198, 0.5);
+}
+
+.theme-neumorphism .vps-compact-row--neumorphism {
+  background: #e0e5ec;
+  border-bottom: none;
+  box-shadow: 
+    inset 0 -1px 0 rgba(163, 177, 198, 0.3);
+}
+
+.theme-neumorphism .vps-compact-row--neumorphism:hover {
+  background: #e0e5ec;
+  box-shadow: 
+    6px 6px 12px rgba(163, 177, 198, 0.6),
+    -6px -6px 12px rgba(255, 255, 255, 0.8);
+}
+
+.theme-neumorphism .vps-compact-node-name--neumorphism {
+  color: var(--text-primary);
+}
+
+.theme-neumorphism .vps-compact-node-location--neumorphism {
+  color: var(--text-muted);
+}
+
+.theme-neumorphism .vps-compact-text--neumorphism {
+  color: var(--text-secondary);
+}
+
+.theme-neumorphism .vps-compact-meter--neumorphism {
+  background: #e0e5ec;
+  box-shadow: 
+    inset 3px 3px 6px rgba(163, 177, 198, 0.5),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.7);
+  border: none;
+}
+
+.theme-neumorphism .vps-compact-meter-text--neumorphism {
+  color: var(--text-primary);
+}
+
+/* Brutalist (野兽派) - Light */
+.theme-brutalist .vps-compact-header--brutalist {
+  background: #ffffff;
+  color: #000000;
+  border-bottom: 3px solid #000000;
+  border-radius: 0;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.theme-brutalist .vps-compact-row--brutalist {
+  background: #ffffff;
+  border-bottom: 2px solid #000000;
+  border-radius: 0;
+}
+
+.theme-brutalist .vps-compact-row--brutalist:hover {
+  background: #f5f5f5;
+  transform: translateX(-2px);
+}
+
+.theme-brutalist .vps-compact-node-name--brutalist {
+  color: #000000;
+  font-weight: 900;
+}
+
+.theme-brutalist .vps-compact-node-location--brutalist {
+  color: #666666;
+}
+
+.theme-brutalist .vps-compact-text--brutalist {
+  color: #000000;
+}
+
+.theme-brutalist .vps-compact-meter--brutalist {
+  background: #ffffff;
+  border: 2px solid #000000;
+  border-radius: 0;
+}
+
+.theme-brutalist .vps-compact-meter-text--brutalist {
+  color: #000000;
+  font-weight: 900;
+}
+
+/* Minimal (极简禅意) - Light */
+.theme-minimal .vps-compact-header--minimal {
+  background: #ffffff;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.theme-minimal .vps-compact-row--minimal {
+  background: #ffffff;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.theme-minimal .vps-compact-row--minimal:hover {
+  background: #fafafa;
+}
+
+.theme-minimal .vps-compact-node-name--minimal {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.theme-minimal .vps-compact-node-location--minimal {
+  color: var(--text-muted);
+}
+
+.theme-minimal .vps-compact-text--minimal {
+  color: var(--text-secondary);
+}
+
+.theme-minimal .vps-compact-meter--minimal {
+  background: var(--border-secondary);
+  border: none;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.theme-minimal .vps-compact-meter-text--minimal {
+  color: var(--text-primary);
 }

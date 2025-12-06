@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme, type ThemeId, type BackgroundType } from '../context/ThemeContext';
 import { showToast } from '../components/Toast';
-import type { SiteSettings, SocialLink, ServerGroup, GroupDimension } from '../types';
+import type { SiteSettings, SocialLink, GroupDimension } from '../types';
 
 // Universal copy to clipboard function that works in all contexts
 const copyTextToClipboard = async (text: string): Promise<boolean> => {
@@ -593,7 +593,7 @@ export default function Settings() {
   
   // New server form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newServer, setNewServer] = useState({ name: '', url: '', location: '', provider: '', tag: '', group_id: '' });
+  const [newServer, setNewServer] = useState({ name: '', url: '', location: '', provider: '', tag: '' });
   const [addLoading, setAddLoading] = useState(false);
   
   // Password change
@@ -642,7 +642,6 @@ export default function Settings() {
     location: '', 
     provider: '', 
     tag: '',
-    group_id: '',
     price_amount: '',
     price_period: 'month' as 'month' | 'year',
     purchase_date: '',
@@ -658,7 +657,6 @@ export default function Settings() {
     location: '', 
     provider: '', 
     tag: '',
-    group_id: '',
     price_amount: '',
     price_period: 'month' as 'month' | 'year',
     purchase_date: '',
@@ -673,18 +671,8 @@ export default function Settings() {
   const [showProbeSettings, setShowProbeSettings] = useState(false);
   const [probeSaving, setProbeSaving] = useState(false);
   
-  // Group management (deprecated - kept for backward compatibility)
-  interface ServerGroupLocal {
-    id: string;
-    name: string;
-    sort_order: number;
-  }
-  const [groups, setGroups] = useState<ServerGroupLocal[]>([]);
+  // Group management removed - using tags instead
   const [probeSuccess, setProbeSuccess] = useState(false);
-  
-  // Suppress unused warnings for deprecated group management
-  const [_groups] = useState<ServerGroup[]>([]);
-  void [_groups];
   
   // Dimension management
   const [dimensions, setDimensions] = useState<GroupDimension[]>([]);
@@ -1062,13 +1050,6 @@ export default function Settings() {
       if (res.ok) {
         const data = await res.json();
         setDimensions(data || []);
-        // Also fetch groups for backward compatibility
-        const groupsRes = await fetch('/api/groups', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (groupsRes.ok) {
-          setGroups(await groupsRes.json() || []);
-        }
       }
     } catch (e) {
       console.error('Failed to fetch dimensions', e);
@@ -1497,7 +1478,6 @@ export default function Settings() {
       location: server.location,
       provider: server.provider,
       tag: server.tag || '',
-      group_id: server.group_id || '',
       price_amount: server.price_amount || '',
       price_period: (server.price_period as 'month' | 'year') || 'month',
       purchase_date: server.purchase_date || '',
@@ -1525,7 +1505,6 @@ export default function Settings() {
         location: editForm.location.trim(),
         provider: editForm.provider.trim(),
         tag: editForm.tag.trim(),
-        group_id: editForm.group_id || '',
       };
       
       // Add price fields if provided
@@ -1562,7 +1541,6 @@ export default function Settings() {
             location: '', 
             provider: '', 
             tag: '',
-            group_id: '',
             price_amount: '',
             price_period: 'month',
             purchase_date: '',
@@ -1599,7 +1577,7 @@ export default function Settings() {
       if (res.ok) {
         const server = await res.json();
         setServers([...servers, server]);
-        setNewServer({ name: '', url: '', location: '', provider: '', tag: '', group_id: '' });
+        setNewServer({ name: '', url: '', location: '', provider: '', tag: '' });
         setShowAddForm(false);
       }
     } catch (e) {
@@ -2491,19 +2469,6 @@ export default function Settings() {
                   placeholder="e.g., AWS, Vultr"
                 />
               </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Group</label>
-                <select
-                  value={newServer.group_id}
-                  onChange={(e) => setNewServer({ ...newServer, group_id: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
-                >
-                  <option value="">No Group</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </div>
             </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm transition-colors">
@@ -2630,19 +2595,6 @@ export default function Settings() {
                       <option value="perf">性能机</option>
                       <option value="landing">落地机</option>
                       <option value="dufu">杜甫</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Group</label>
-                    <select
-                      value={localNodeConfig.group_id}
-                      onChange={(e) => setLocalNodeConfig({ ...localNodeConfig, group_id: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
-                    >
-                      <option value="">No Group</option>
-                      {groups.map(g => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
                     </select>
                   </div>
                 </div>
@@ -2942,19 +2894,6 @@ export default function Settings() {
                             <option value="dufu">杜甫</option>
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">Group</label>
-                          <select
-                            value={editForm.group_id}
-                            onChange={(e) => setEditForm({ ...editForm, group_id: e.target.value })}
-                            className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
-                          >
-                            <option value="">No Group</option>
-                            {groups.map(g => (
-                              <option key={g.id} value={g.id}>{g.name}</option>
-                            ))}
-                          </select>
-                        </div>
                       </div>
                       
                       {/* Extended Metadata Section */}
@@ -3003,7 +2942,6 @@ export default function Settings() {
                               location: '', 
                               provider: '', 
                               tag: '',
-                              group_id: '',
                               price_amount: '',
                               price_period: 'month',
                               purchase_date: '',

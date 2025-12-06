@@ -264,34 +264,93 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Fetch Bing wallpaper through our proxy API
+// Fetch Bing wallpaper through our proxy API (server-side proxy to avoid CORS)
 const fetchBingWallpaper = async (): Promise<string> => {
   try {
     const response = await fetch('/api/wallpaper/bing');
+    
+    if (!response.ok) {
+      console.warn(`Bing wallpaper proxy returned ${response.status}: ${response.statusText}`);
+      // Use fallback image if proxy fails
+      return 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80';
+    }
+    
     const data = await response.json();
-    if (data.url) {
+    if (data && data.url) {
       return data.url;
     }
+    
+    console.warn('Bing wallpaper proxy returned invalid response:', data);
   } catch (e) {
-    console.error('Failed to fetch Bing wallpaper:', e);
+    console.error('Failed to fetch Bing wallpaper through proxy:', e);
+    // Never directly call Bing API - always use fallback
   }
-  // Fallback image
+  // Fallback image (Unsplash)
   return 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80';
 };
 
-// Fetch Unsplash image through our proxy API
+// Fetch custom wallpaper URL through our proxy API to avoid CORS
+const fetchCustomWallpaper = async (imageURL: string): Promise<string> => {
+  try {
+    // Check if it's a relative URL or same-origin - use directly
+    try {
+      const url = new URL(imageURL, window.location.origin);
+      if (url.origin === window.location.origin) {
+        // Same origin, use directly
+        return imageURL;
+      }
+    } catch {
+      // If URL parsing fails, it might be a relative URL
+      if (!imageURL.startsWith('http://') && !imageURL.startsWith('https://')) {
+        return imageURL;
+      }
+    }
+
+    // For external URLs, check if we need proxy
+    const response = await fetch(`/api/wallpaper/proxy?url=${encodeURIComponent(imageURL)}`);
+    
+    if (!response.ok) {
+      console.warn(`Custom wallpaper proxy returned ${response.status}: ${response.statusText}`);
+      // Fallback to original URL - might work if CORS headers are present
+      return imageURL;
+    }
+    
+    const data = await response.json();
+    if (data && data.url) {
+      return data.url;
+    }
+    
+    console.warn('Custom wallpaper proxy returned invalid response:', data);
+  } catch (e) {
+    console.error('Failed to fetch custom wallpaper through proxy:', e);
+    // Fallback to original URL
+  }
+  return imageURL;
+};
+
+// Fetch Unsplash image through our proxy API (server-side proxy to avoid CORS)
 const fetchUnsplashImage = async (query: string = 'nature,landscape'): Promise<string> => {
   try {
     const keywords = query || 'nature,landscape,abstract';
     const response = await fetch(`/api/wallpaper/unsplash?query=${encodeURIComponent(keywords)}`);
+    
+    if (!response.ok) {
+      console.warn(`Unsplash wallpaper proxy returned ${response.status}: ${response.statusText}`);
+      // Use fallback if proxy fails
+      return `https://source.unsplash.com/1920x1080/?${encodeURIComponent(keywords)}&t=${Date.now()}`;
+    }
+    
     const data = await response.json();
-    if (data.url) {
+    if (data && data.url) {
       return data.url;
     }
+    
+    console.warn('Unsplash wallpaper proxy returned invalid response:', data);
   } catch (e) {
-    console.error('Failed to fetch Unsplash image:', e);
+    console.error('Failed to fetch Unsplash image through proxy:', e);
+    // Never directly call Unsplash API - use fallback URL
   }
-  // Fallback: return the redirect URL directly
+  // Fallback: return the redirect URL directly with timestamp to avoid caching
   const keywords = query || 'nature,landscape,abstract';
   return `https://source.unsplash.com/1920x1080/?${encodeURIComponent(keywords)}&t=${Date.now()}`;
 };
@@ -360,7 +419,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       const url = await fetchUnsplashImage(background.unsplashQuery);
       setBackgroundUrl(url);
     } else if (background.type === 'custom' && background.customUrl) {
-      setBackgroundUrl(background.customUrl);
+      const url = await fetchCustomWallpaper(background.customUrl);
+      setBackgroundUrl(url);
     } else {
       setBackgroundUrl(null);
     }

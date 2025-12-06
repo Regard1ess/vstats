@@ -671,11 +671,10 @@ const formatUptimeDays = (seconds: number, t: (key: string) => string): string =
 };
 
 // VPS Compact Table Header
-function VpsCompactTableHeader({ isDark }: { isDark: boolean }) {
+function VpsCompactTableHeader({ themeId }: { themeId: string }) {
   const { t } = useTranslation();
-  const themeClass = isDark ? 'dark' : 'light';
   return (
-    <div className={`vps-compact-header vps-compact-header--${themeClass}`}>
+    <div className={`vps-compact-header vps-compact-header--${themeId}`}>
       <div className="vps-compact-col vps-compact-col--node">{t('dashboard.node')}</div>
       <div className="vps-compact-col vps-compact-col--type">{t('dashboard.type')}</div>
       <div className="vps-compact-col vps-compact-col--uptime">{t('dashboard.uptime')}</div>
@@ -689,20 +688,19 @@ function VpsCompactTableHeader({ isDark }: { isDark: boolean }) {
 }
 
 // VPS Compact Row Component
-function VpsCompactCard({ server, onClick, isDark }: { 
+function VpsCompactCard({ server, onClick, themeId }: { 
   server: ServerState; 
   onClick: () => void; 
-  isDark: boolean;
+  themeId: string;
 }) {
   const { t } = useTranslation();
   const { metrics, speed, isConnected, config } = server;
-  const themeClass = isDark ? 'dark' : 'light';
   
   const flag = getFlag(config.location);
 
   if (!metrics) {
     return (
-      <div className={`vps-compact-row vps-compact-row--${themeClass} animate-pulse`} onClick={onClick}>
+      <div className={`vps-compact-row vps-compact-row--${themeId} animate-pulse`} onClick={onClick}>
         <div className="vps-compact-col vps-compact-col--node">
           <div className="flex items-center gap-2.5">
             <div className="w-2 h-2 skeleton-bg rounded-full" />
@@ -765,14 +763,12 @@ function VpsCompactCard({ server, onClick, isDark }: {
   };
 
   return (
-    <div className={`vps-compact-row vps-compact-row--${themeClass}`} onClick={onClick}>
+    <div className={`vps-compact-row vps-compact-row--${themeId}`} onClick={onClick}>
       {/* NODE */}
       <div className="vps-compact-col vps-compact-col--node">
         <span className={`vps-compact-status ${isConnected ? 'is-online' : 'is-offline'}`} />
         {/* Country Flag as main icon */}
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
-          isDark ? 'bg-white/5 border border-white/10' : 'bg-gray-100 border border-gray-200'
-        }`}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-white/5 border border-white/10">
           {flag ? (
             <span className="text-xl">{flag}</span>
           ) : (
@@ -780,40 +776,40 @@ function VpsCompactCard({ server, onClick, isDark }: {
           )}
         </div>
         <div className="vps-compact-node-info">
-          <span className={`vps-compact-node-name vps-compact-node-name--${themeClass}`}>
+          <span className={`vps-compact-node-name vps-compact-node-name--${themeId}`}>
             {config.name}
           </span>
-          <span className={`vps-compact-node-location vps-compact-node-location--${themeClass}`}>
+          <span className={`vps-compact-node-location vps-compact-node-location--${themeId}`}>
             {config.location || 'Unknown'}
           </span>
         </div>
       </div>
 
       {/* TYPE */}
-      <div className={`vps-compact-col vps-compact-col--type vps-compact-text--${themeClass}`}>
+      <div className={`vps-compact-col vps-compact-col--type vps-compact-text--${themeId}`}>
         {getVirtType()}
       </div>
 
       {/* UPTIME */}
-      <div className={`vps-compact-col vps-compact-col--uptime vps-compact-text--${themeClass}`}>
+      <div className={`vps-compact-col vps-compact-col--uptime vps-compact-text--${themeId}`}>
         {formatUptimeDays(metrics.uptime, t)}
       </div>
 
       {/* NETWORK */}
-      <div className={`vps-compact-col vps-compact-col--network vps-compact-text--${themeClass}`}>
+      <div className={`vps-compact-col vps-compact-col--network vps-compact-text--${themeId}`}>
         <span>{formatSpeed(speed.tx_sec)}↑</span>
         <span>{formatSpeed(speed.rx_sec)}↓</span>
       </div>
 
       {/* TRAFFIC */}
-      <div className={`vps-compact-col vps-compact-col--traffic vps-compact-text--${themeClass}`}>
+      <div className={`vps-compact-col vps-compact-col--traffic vps-compact-text--${themeId}`}>
         <span>{formatTraffic(totalTxTraffic)}↑</span>
         <span>{formatTraffic(totalRxTraffic)}↓</span>
       </div>
 
       {/* CPU */}
       <div className="vps-compact-col vps-compact-col--cpu">
-        <div className={`vps-compact-meter vps-compact-meter--${themeClass}`}>
+        <div className={`vps-compact-meter vps-compact-meter--${themeId}`}>
           <div 
             className="vps-compact-meter-fill"
             style={{ 
@@ -822,14 +818,14 @@ function VpsCompactCard({ server, onClick, isDark }: {
             }}
           />
         </div>
-        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeClass}`}>
+        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeId}`}>
           {Math.round(metrics.cpu.usage)}%
         </span>
       </div>
 
       {/* MEM */}
       <div className="vps-compact-col vps-compact-col--mem">
-        <div className={`vps-compact-meter vps-compact-meter--${themeClass}`}>
+        <div className={`vps-compact-meter vps-compact-meter--${themeId}`}>
           <div 
             className="vps-compact-meter-fill"
             style={{ 
@@ -838,14 +834,14 @@ function VpsCompactCard({ server, onClick, isDark }: {
             }}
           />
         </div>
-        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeClass}`}>
+        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeId}`}>
           {Math.round(metrics.memory.usage_percent)}%
         </span>
       </div>
 
       {/* HDD */}
       <div className="vps-compact-col vps-compact-col--hdd">
-        <div className={`vps-compact-meter vps-compact-meter--${themeClass}`}>
+        <div className={`vps-compact-meter vps-compact-meter--${themeId}`}>
           <div 
             className="vps-compact-meter-fill"
             style={{ 
@@ -854,7 +850,7 @@ function VpsCompactCard({ server, onClick, isDark }: {
             }}
           />
         </div>
-        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeClass}`}>
+        <span className={`vps-compact-meter-text vps-compact-meter-text--${themeId}`}>
           {Math.round(diskUsage)}%
         </span>
       </div>
@@ -927,8 +923,8 @@ export default function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { servers, groupDimensions, siteSettings, isInitialLoad } = useServerManager();
-  const { isDark, backgroundUrl, background } = useTheme();
-  const themeClass = isDark ? 'dark' : 'light';
+  const { isDark, backgroundUrl, background, themeId } = useTheme();
+  const themeClass = themeId;
   
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('vstats-view-mode') as ViewMode) || 'grid';
@@ -1204,7 +1200,7 @@ export default function Dashboard() {
               </div>
             ) : viewMode === 'compact' ? (
               <div className="vps-compact-table">
-                <VpsCompactTableHeader isDark={isDark} />
+                <VpsCompactTableHeader themeId={themeClass} />
                 <div className="vps-compact-body">
                   {[1, 2, 3, 4, 5].map(i => (
                     <div key={i} className={`vps-compact-row vps-compact-row--${themeClass} animate-pulse`}>
@@ -1262,7 +1258,7 @@ export default function Dashboard() {
                             <VpsCompactCard 
                               server={server} 
                               onClick={() => navigate(`/server/${server.config.id}`)}
-                              isDark={isDark}
+                              themeId={themeClass}
                             />
                           </div>
                         ))}

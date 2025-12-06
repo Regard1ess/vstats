@@ -977,6 +977,7 @@ export default function ServerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { servers, loadingState, isInitialLoad } = useServerManager();
+  const { themeId, isDark } = useTheme();
   const [showContent, setShowContent] = useState(false);
 
   const server = servers.find(s => s.config.id === id);
@@ -1046,11 +1047,11 @@ export default function ServerDetail() {
   const flag = getFlag(config.location || '');
 
   return (
-    <div className={`min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto ${showContent ? 'animate-slideUp' : 'opacity-0'}`}>
+    <div className={`server-detail min-h-screen p-4 md:p-6 lg:p-10 max-w-6xl mx-auto ${showContent ? 'animate-slideUp' : 'opacity-0'}`}>
       {/* Back Button */}
       <button 
         onClick={() => navigate('/')}
-        className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors group"
+        className={`mb-6 flex items-center gap-2 ${isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'} transition-colors group`}
       >
         <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

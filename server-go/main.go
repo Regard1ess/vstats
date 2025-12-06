@@ -124,6 +124,8 @@ func main() {
 	r.GET("/api/settings/site", state.GetSiteSettings)
 	r.GET("/api/wallpaper/bing", GetBingWallpaper)
 	r.GET("/api/wallpaper/unsplash", GetUnsplashWallpaper)
+	r.GET("/api/wallpaper/proxy", GetCustomWallpaper)
+	r.GET("/api/wallpaper/proxy/image", GetCustomWallpaperImage)
 	r.POST("/api/auth/login", state.Login)
 	r.GET("/api/auth/verify", AuthMiddleware(), state.VerifyToken)
 
