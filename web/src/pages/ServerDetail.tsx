@@ -111,8 +111,8 @@ const CustomTooltip = ({
 
 function HistoryChart({ serverId }: { serverId: string }) {
   const { t } = useTranslation();
-  const { theme } = useTheme();
-  const isLight = theme === 'light';
+  const { isDark } = useTheme();
+  const isLight = !isDark;
   const [range, setRange] = useState<TimeRange>('24h');
   const [tab, setTab] = useState<HistoryTab>('overview');
   const [data, setData] = useState<HistoryPoint[]>([]);
