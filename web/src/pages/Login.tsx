@@ -48,7 +48,8 @@ export default function Login() {
     const success = await login(inputPassword);
     
     if (success) {
-      navigate('/settings');
+      // Use replace to avoid going back to login page
+      navigate('/settings', { replace: true });
     } else {
       setError(t('login.invalidPassword'));
     }

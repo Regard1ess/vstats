@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
 // 主题类型定义
 export type ThemeId = 
@@ -233,6 +233,19 @@ const DEFAULT_BACKGROUND: BackgroundConfig = {
   opacity: 100
 };
 
+// Server theme settings interface (matches backend and types.ts)
+interface ServerThemeSettings {
+  theme_id: string;
+  background?: {
+    type: BackgroundType;
+    custom_url?: string;
+    unsplash_query?: string;
+    solid_color?: string;
+    blur?: number;
+    opacity?: number;
+  };
+}
+
 interface ThemeContextType {
   themeId: ThemeId;
   theme: ThemeConfig;
@@ -243,31 +256,71 @@ interface ThemeContextType {
   setBackground: (config: BackgroundConfig) => void;
   backgroundUrl: string | null;
   refreshBackground: () => void;
+  // Sync from server
+  applyServerSettings: (settings: ServerThemeSettings | null) => void;
+  // For saving to server (returns the server format)
+  getServerSettings: () => ServerThemeSettings;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-// Bing 每日壁纸 API
+// Fetch Bing wallpaper through our proxy API
 const fetchBingWallpaper = async (): Promise<string> => {
   try {
-    // 使用代理或直接访问 Bing API
-    const response = await fetch('https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US');
+    const response = await fetch('/api/wallpaper/bing');
     const data = await response.json();
-    if (data.images && data.images[0]) {
-      return `https://www.bing.com${data.images[0].url}`;
+    if (data.url) {
+      return data.url;
     }
   } catch (e) {
     console.error('Failed to fetch Bing wallpaper:', e);
   }
-  // 备用图片
+  // Fallback image
   return 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1920&q=80';
 };
 
-// Unsplash 随机图片
+// Fetch Unsplash image through our proxy API
 const fetchUnsplashImage = async (query: string = 'nature,landscape'): Promise<string> => {
-  // 使用 Unsplash Source API (不需要 API key)
+  try {
+    const keywords = query || 'nature,landscape,abstract';
+    const response = await fetch(`/api/wallpaper/unsplash?query=${encodeURIComponent(keywords)}`);
+    const data = await response.json();
+    if (data.url) {
+      return data.url;
+    }
+  } catch (e) {
+    console.error('Failed to fetch Unsplash image:', e);
+  }
+  // Fallback: return the redirect URL directly
   const keywords = query || 'nature,landscape,abstract';
   return `https://source.unsplash.com/1920x1080/?${encodeURIComponent(keywords)}&t=${Date.now()}`;
+};
+
+// Convert server format to local format
+const serverToLocalBackground = (serverBg: ServerThemeSettings['background']): BackgroundConfig => {
+  if (!serverBg) return DEFAULT_BACKGROUND;
+  const validTypes: BackgroundType[] = ['gradient', 'bing', 'unsplash', 'custom', 'solid'];
+  const bgType = validTypes.includes(serverBg.type as BackgroundType) ? serverBg.type : 'gradient';
+  return {
+    type: bgType,
+    customUrl: serverBg.custom_url,
+    unsplashQuery: serverBg.unsplash_query,
+    solidColor: serverBg.solid_color,
+    blur: serverBg.blur ?? 0,
+    opacity: serverBg.opacity ?? 100,
+  };
+};
+
+// Convert local format to server format
+const localToServerBackground = (localBg: BackgroundConfig): ServerThemeSettings['background'] => {
+  return {
+    type: localBg.type as BackgroundType,
+    custom_url: localBg.customUrl,
+    unsplash_query: localBg.unsplashQuery,
+    solid_color: localBg.solidColor,
+    blur: localBg.blur,
+    opacity: localBg.opacity,
+  };
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -294,11 +347,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   });
 
   const [backgroundUrl, setBackgroundUrl] = useState<string | null>(null);
+  const [serverSettingsApplied, setServerSettingsApplied] = useState(false);
 
   const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
 
   // 获取背景图
-  const refreshBackground = async () => {
+  const refreshBackground = useCallback(async () => {
     if (background.type === 'bing') {
       const url = await fetchBingWallpaper();
       setBackgroundUrl(url);
@@ -310,11 +364,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     } else {
       setBackgroundUrl(null);
     }
-  };
+  }, [background.type, background.customUrl, background.unsplashQuery]);
 
   useEffect(() => {
     refreshBackground();
-  }, [background.type, background.customUrl, background.unsplashQuery]);
+  }, [refreshBackground]);
 
   useEffect(() => {
     localStorage.setItem('vstats-theme-id', themeId);
@@ -344,6 +398,67 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   
   const setBackground = (config: BackgroundConfig) => setBackgroundState(config);
 
+  // Apply settings from server (called when WebSocket receives site_settings)
+  const applyServerSettings = useCallback((settings: ServerThemeSettings | null) => {
+    if (!settings) return;
+    
+    // Apply theme ID
+    if (settings.theme_id && THEMES.find(t => t.id === settings.theme_id)) {
+      setThemeId(settings.theme_id as ThemeId);
+    }
+    
+    // Apply background settings
+    if (settings.background) {
+      setBackgroundState(serverToLocalBackground(settings.background));
+    }
+    
+    setServerSettingsApplied(true);
+  }, []);
+
+  // Get settings in server format (for saving)
+  const getServerSettings = useCallback((): ServerThemeSettings => {
+    return {
+      theme_id: themeId,
+      background: localToServerBackground(background),
+    };
+  }, [themeId, background]);
+
+  // Fetch initial settings from server on mount
+  useEffect(() => {
+    if (serverSettingsApplied) return;
+    
+    const fetchServerSettings = async () => {
+      try {
+        const response = await fetch('/api/settings/site');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.theme) {
+            applyServerSettings(data.theme);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch site settings:', e);
+      }
+    };
+    
+    fetchServerSettings();
+  }, [applyServerSettings, serverSettingsApplied]);
+
+  // Listen for WebSocket site settings updates
+  useEffect(() => {
+    const handleSiteSettingsUpdate = (event: CustomEvent) => {
+      const siteSettings = event.detail;
+      if (siteSettings?.theme) {
+        applyServerSettings(siteSettings.theme);
+      }
+    };
+    
+    window.addEventListener('vstats-site-settings', handleSiteSettingsUpdate as EventListener);
+    return () => {
+      window.removeEventListener('vstats-site-settings', handleSiteSettingsUpdate as EventListener);
+    };
+  }, [applyServerSettings]);
+
   return (
     <ThemeContext.Provider value={{ 
       themeId, 
@@ -354,7 +469,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       background,
       setBackground,
       backgroundUrl,
-      refreshBackground
+      refreshBackground,
+      applyServerSettings,
+      getServerSettings,
     }}>
       {children}
     </ThemeContext.Provider>

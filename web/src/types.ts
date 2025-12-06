@@ -115,11 +115,28 @@ export interface GroupDimension {
   options: GroupOption[];
 }
 
+// Background configuration
+export interface BackgroundConfig {
+  type: 'gradient' | 'bing' | 'unsplash' | 'custom' | 'solid';
+  custom_url?: string;
+  unsplash_query?: string;
+  solid_color?: string;
+  blur?: number;
+  opacity?: number;
+}
+
+// Theme settings
+export interface ThemeSettings {
+  theme_id: string;
+  background?: BackgroundConfig;
+}
+
 // Site Settings
 export interface SiteSettings {
   site_name: string;
   site_description: string;
   social_links: SocialLink[];
+  theme?: ThemeSettings;
 }
 
 export interface SocialLink {

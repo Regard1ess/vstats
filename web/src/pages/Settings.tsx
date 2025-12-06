@@ -107,16 +107,64 @@ const UNSPLASH_PRESETS = [
   { query: 'minimal,architecture', label: 'Minimal', labelZh: '极简' },
 ];
 
-function ThemeSettingsSection() {
+interface ThemeSettingsSectionProps {
+  isAuthenticated: boolean;
+  token: string | null;
+  siteSettings: SiteSettings;
+  onSiteSettingsChange: (settings: SiteSettings) => void;
+}
+
+function ThemeSettingsSection({ isAuthenticated, token, siteSettings, onSiteSettingsChange }: ThemeSettingsSectionProps) {
   const { i18n } = useTranslation();
-  const { themeId, setTheme, themes, background, setBackground, backgroundUrl, refreshBackground } = useTheme();
+  const { themeId, setTheme, themes, background, setBackground, backgroundUrl, refreshBackground, getServerSettings } = useTheme();
   const [hoveredTheme, setHoveredTheme] = useState<ThemeId | null>(null);
   const [customUrl, setCustomUrl] = useState(background.customUrl || '');
   const [unsplashQuery, setUnsplashQuery] = useState(background.unsplashQuery || 'nature,landscape');
   const [solidColor, setSolidColor] = useState(background.solidColor || '#1a1a2e');
   const [bgBlur, setBgBlur] = useState(background.blur || 0);
   const [bgOpacity, setBgOpacity] = useState(background.opacity || 100);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const isZh = i18n.language.startsWith('zh');
+
+  // Save theme settings to server
+  const saveThemeSettings = async () => {
+    if (!isAuthenticated || !token) {
+      showToast(isZh ? '请先登录' : 'Please login first', 'error');
+      return;
+    }
+    
+    setSaving(true);
+    try {
+      const themeSettings = getServerSettings();
+      const updatedSiteSettings = {
+        ...siteSettings,
+        theme: themeSettings,
+      };
+      
+      const res = await fetch('/api/settings/site', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedSiteSettings),
+      });
+      
+      if (res.ok) {
+        onSiteSettingsChange(updatedSiteSettings);
+        setSaveSuccess(true);
+        showToast(isZh ? '主题设置已保存' : 'Theme settings saved', 'success');
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } else {
+        showToast(isZh ? '保存失败' : 'Failed to save', 'error');
+      }
+    } catch (e) {
+      console.error('Failed to save theme settings:', e);
+      showToast(isZh ? '保存失败' : 'Failed to save', 'error');
+    }
+    setSaving(false);
+  };
 
   const handleBackgroundTypeChange = (type: BackgroundType) => {
     setBackground({
@@ -467,6 +515,54 @@ function ThemeSettingsSection() {
           </div>
         )}
       </div>
+
+      {/* Save Theme Settings Button */}
+      {isAuthenticated && (
+        <div className="nezha-card p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-white">
+                {isZh ? '保存主题设置' : 'Save Theme Settings'}
+              </h3>
+              <p className="text-sm text-gray-400 mt-1">
+                {isZh ? '将主题设置应用到全站，所有用户都能看到' : 'Apply theme settings site-wide for all users'}
+              </p>
+            </div>
+            <button
+              onClick={saveThemeSettings}
+              disabled={saving}
+              className={`
+                px-6 py-2.5 rounded-lg text-white text-sm font-medium transition-all
+                ${saving 
+                  ? 'bg-gray-600 cursor-not-allowed' 
+                  : saveSuccess 
+                    ? 'bg-emerald-500 hover:bg-emerald-600' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                }
+              `}
+            >
+              {saving ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  {isZh ? '保存中...' : 'Saving...'}
+                </span>
+              ) : saveSuccess ? (
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {isZh ? '已保存' : 'Saved'}
+                </span>
+              ) : (
+                isZh ? '保存到全站' : 'Save Site-wide'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -612,7 +708,8 @@ export default function Settings() {
     if (authLoading) return;
     
     if (!isAuthenticated) {
-      navigate('/login');
+      // Use replace to avoid polluting browser history
+      navigate('/login', { replace: true });
       return;
     }
     fetchServers();
@@ -625,7 +722,8 @@ export default function Settings() {
     fetchServerVersion();
     checkLatestVersion();
     fetchOAuthSettings();
-  }, [isAuthenticated, authLoading, navigate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authLoading]);
   
   // Refresh agent status periodically
   useEffect(() => {
@@ -2954,7 +3052,12 @@ export default function Settings() {
       </div>
 
       {/* Theme Settings Section */}
-      <ThemeSettingsSection />
+      <ThemeSettingsSection 
+        isAuthenticated={isAuthenticated}
+        token={token}
+        siteSettings={siteSettings}
+        onSiteSettingsChange={setSiteSettings}
+      />
 
       {/* Version Info Section */}
       <div className="nezha-card p-6 mb-6">

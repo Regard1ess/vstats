@@ -122,6 +122,8 @@ func main() {
 	r.GET("/api/groups", state.GetGroups)
 	r.GET("/api/dimensions", state.GetDimensions) // Public: get all dimensions for grouping
 	r.GET("/api/settings/site", state.GetSiteSettings)
+	r.GET("/api/wallpaper/bing", GetBingWallpaper)
+	r.GET("/api/wallpaper/unsplash", GetUnsplashWallpaper)
 	r.POST("/api/auth/login", state.Login)
 	r.GET("/api/auth/verify", AuthMiddleware(), state.VerifyToken)
 

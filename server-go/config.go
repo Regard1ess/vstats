@@ -35,10 +35,27 @@ type LocalNodeConfig struct {
 	TipBadge     string            `json:"tip_badge,omitempty"`
 }
 
+// BackgroundConfig represents background settings for the site theme
+type BackgroundConfig struct {
+	Type          string `json:"type"`            // gradient, bing, unsplash, custom, solid
+	CustomUrl     string `json:"custom_url,omitempty"`
+	UnsplashQuery string `json:"unsplash_query,omitempty"`
+	SolidColor    string `json:"solid_color,omitempty"`
+	Blur          int    `json:"blur,omitempty"`
+	Opacity       int    `json:"opacity,omitempty"`
+}
+
+// ThemeSettings represents site-wide theme configuration
+type ThemeSettings struct {
+	ThemeId    string            `json:"theme_id"`
+	Background *BackgroundConfig `json:"background,omitempty"`
+}
+
 type SiteSettings struct {
-	SiteName        string       `json:"site_name"`
-	SiteDescription string       `json:"site_description"`
-	SocialLinks     []SocialLink `json:"social_links"`
+	SiteName        string         `json:"site_name"`
+	SiteDescription string         `json:"site_description"`
+	SocialLinks     []SocialLink   `json:"social_links"`
+	Theme           *ThemeSettings `json:"theme,omitempty"`
 }
 
 type SocialLink struct {

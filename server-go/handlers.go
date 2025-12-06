@@ -743,7 +743,105 @@ func (s *AppState) UpdateSiteSettings(c *gin.Context) {
 	SaveConfig(s.Config)
 	s.ConfigMu.Unlock()
 
+	// Broadcast the updated settings to all connected dashboard clients
+	s.BroadcastSiteSettings(&settings)
+
 	c.Status(http.StatusOK)
+}
+
+// BroadcastSiteSettings sends updated site settings (including theme) to all connected clients
+func (s *AppState) BroadcastSiteSettings(settings *SiteSettings) {
+	msg := map[string]interface{}{
+		"type":          "site_settings",
+		"site_settings": settings,
+	}
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal site settings: %v", err)
+		return
+	}
+
+	s.DashboardMu.RLock()
+	defer s.DashboardMu.RUnlock()
+
+	for conn := range s.DashboardClients {
+		if err := conn.WriteMessage(1, data); err != nil {
+			log.Printf("Failed to broadcast site settings: %v", err)
+		}
+	}
+}
+
+// ============================================================================
+// Wallpaper Proxy Handlers (for Bing and Unsplash)
+// ============================================================================
+
+// GetBingWallpaper proxies the Bing daily wallpaper API to avoid CORS issues
+func GetBingWallpaper(c *gin.Context) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=1&mkt=en-US")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch Bing wallpaper"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
+		return
+	}
+
+	var result struct {
+		Images []struct {
+			URL string `json:"url"`
+		} `json:"images"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
+	}
+
+	if len(result.Images) > 0 {
+		imageURL := "https://www.bing.com" + result.Images[0].URL
+		c.JSON(http.StatusOK, gin.H{"url": imageURL})
+	} else {
+		c.JSON(http.StatusNotFound, gin.H{"error": "No wallpaper found"})
+	}
+}
+
+// GetUnsplashWallpaper returns a random Unsplash image URL
+func GetUnsplashWallpaper(c *gin.Context) {
+	query := c.DefaultQuery("query", "nature,landscape")
+	// Use Unsplash random photo - this is a redirect URL that works without API key
+	imageURL := fmt.Sprintf("https://source.unsplash.com/1920x1080/?%s", url.QueryEscape(query))
+	
+	// Try to resolve the actual image URL by following the redirect
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse // Don't follow redirects automatically
+		},
+	}
+	
+	resp, err := client.Get(imageURL)
+	if err != nil {
+		// Fallback: return the redirect URL directly
+		c.JSON(http.StatusOK, gin.H{"url": imageURL})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Get the redirect location
+	if resp.StatusCode == http.StatusFound || resp.StatusCode == http.StatusMovedPermanently {
+		location := resp.Header.Get("Location")
+		if location != "" {
+			c.JSON(http.StatusOK, gin.H{"url": location})
+			return
+		}
+	}
+
+	// Fallback: return the original URL
+	c.JSON(http.StatusOK, gin.H{"url": imageURL})
 }
 
 // ============================================================================

@@ -12,7 +12,12 @@
 
 <div align="center" style="border: 2px solid #e1e4e8; border-radius: 8px; padding: 16px; margin: 16px 0; background-color: #f6f8fa;">
 
-感谢 [TOHU Cloud](https://www.tohu.cloud) 对本项目的支持！
+感谢 
+
+[TOHU Cloud](https://www.tohu.cloud) 
+[Debee](https://debee.io/) 
+
+对本项目的支持！
 
 </div>
 

@@ -309,6 +309,14 @@ export function useServerManager() {
 
               setServers(allServers);
             }
+            // Handle site settings update message
+            else if (data.type === 'site_settings' && data.site_settings) {
+              setSiteSettings(data.site_settings);
+              // Dispatch custom event for ThemeContext to pick up
+              window.dispatchEvent(new CustomEvent('vstats-site-settings', { 
+                detail: data.site_settings 
+              }));
+            }
             // Handle delta update message
             else if (data.type === 'delta') {
               const deltaData = data as DeltaMessage;
