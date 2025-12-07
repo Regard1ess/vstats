@@ -1,18 +1,10 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { useState } from 'react';
 import { 
   ChevronRight, Copy, Check, 
   Terminal, Server, Code, Settings, 
   FileCode, Globe, Lock, Activity
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-
-const fadeIn = {
-  initial: { opacity: 0, y: 20 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true },
-  transition: { duration: 0.5 }
-};
 
 type Section = {
   id: string;
@@ -459,9 +451,9 @@ Get-EventLog -LogName Application -Source vstats-agent -Newest 50`}
 
 function CodeBlock({ 
   code, 
-  language, 
+  language: _language, 
   onCopy, 
-  copyId, 
+  copyId: _copyId, 
   copied 
 }: { 
   code: string; 
@@ -470,6 +462,9 @@ function CodeBlock({
   copyId: string; 
   copied: boolean;
 }) {
+  // _language and _copyId are passed for future use but currently unused
+  void _language;
+  void _copyId;
   const { t } = useTranslation();
   const handleCopy = () => {
     // 直接复制 code 参数的内容，而不是依赖 onCopy 回调

@@ -1,6 +1,5 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
-import { Twitter, Github, MessageCircle } from 'lucide-react';
+import { Github, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 // X (Twitter) Icon

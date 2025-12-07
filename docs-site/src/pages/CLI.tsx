@@ -1,4 +1,3 @@
-import React from 'react';
 import { Terminal, Download, Command } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 

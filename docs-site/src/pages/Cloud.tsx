@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Cloud, Shield, Zap, Globe, Server, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -64,7 +64,6 @@ export default function CloudPage() {
       
       localStorage.setItem('vstats_cloud_user', JSON.stringify(newUser));
       setUser(newUser);
-      setServers(mockServers); // Load demo servers
       
       // Clean URL
       window.history.replaceState({}, '', '/cloud');
@@ -74,7 +73,6 @@ export default function CloudPage() {
       if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));
-          setServers(mockServers); // Load demo servers
         } catch (e) {
           localStorage.removeItem('vstats_cloud_user');
         }
@@ -103,7 +101,6 @@ export default function CloudPage() {
         
         localStorage.setItem('vstats_cloud_user', JSON.stringify(newUser));
         setUser(newUser);
-        setServers(mockServers);
         setOauthLoading(null);
       }, 1000);
       return;
@@ -124,28 +121,6 @@ export default function CloudPage() {
   const handleLogout = () => {
     localStorage.removeItem('vstats_cloud_user');
     setUser(null);
-    setServers([]);
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'online': return 'bg-emerald-500';
-      case 'offline': return 'bg-slate-400';
-      case 'warning': return 'bg-amber-500';
-      default: return 'bg-slate-400';
-    }
-  };
-
-  const getUsageColor = (value: number) => {
-    if (value >= 80) return 'from-red-500 to-rose-500';
-    if (value >= 60) return 'from-amber-500 to-orange-500';
-    return 'from-emerald-500 to-teal-500';
   };
 
   if (isLoading) {
@@ -362,7 +337,7 @@ export default function CloudPage() {
               { icon: Shield, titleKey: 'enterpriseSecurity', descKey: 'enterpriseSecurity' },
               { icon: Globe, titleKey: 'globalEdge', descKey: 'globalEdge' },
               { icon: Zap, titleKey: 'dataRetention', descKey: 'dataRetention' },
-            ].map((feature, i) => (
+            ].map((feature) => (
               <div key={feature.titleKey} className="flex gap-4">
                 <div className="w-12 h-12 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-500 shrink-0">
                   <feature.icon className="w-6 h-6" />

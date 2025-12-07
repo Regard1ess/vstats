@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Terminal, Activity, Server, Shield, Zap, Globe, Cpu } from 'lucide-react';
+import { Activity, Server, Shield, Zap, Globe, Cpu } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 const fadeIn = {

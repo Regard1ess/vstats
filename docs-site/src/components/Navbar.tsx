@@ -125,7 +125,7 @@ export default function Navbar() {
                   <div className="p-2 space-y-1">
                     {products.map((product) => (
                       <Link
-                        key={product.name}
+                        key={product.nameKey}
                         to={product.path}
                         className={clsx(
                           "flex items-center gap-3 p-3 rounded-lg transition-colors",
