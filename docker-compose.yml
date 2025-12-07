@@ -20,6 +20,11 @@ services:
       - ./data:/app/data
       # Optional: mount custom config file
       # - ./vstats-config.json:/app/data/vstats-config.json:ro
+    # Note: Container runs as vstats user (uid/gid 1000:1000)
+    # If you encounter permission issues, either:
+    # 1. Set data directory ownership: sudo chown -R 1000:1000 ./data
+    # 2. Or uncomment the line below to run as root (less secure):
+    # user: "0:0"
     healthcheck:
       test: ["CMD", "/app/vstats-server", "version"]
       interval: 30s

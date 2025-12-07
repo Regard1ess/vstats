@@ -8,6 +8,7 @@ on:
       - main
     paths:
       - 'web/**'
+      - 'docs-site/**'
       - 'docs/**'
   workflow_dispatch:
     inputs:
@@ -529,7 +530,7 @@ jobs:
           prerelease: false
 
   # ============================================================================
-  # Deploy to GitHub Pages (Documentation Site Only)
+  # Deploy to GitHub Pages (Documentation Site)
   # ============================================================================
   deploy-pages:
     runs-on: ubuntu-latest
@@ -544,24 +545,51 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install docs-site dependencies
+        run: |
+          cd docs-site
+          npm ci
+
+      - name: Build docs-site
+        run: |
+          cd docs-site
+          npm run build
+
       - name: Prepare pages content
         run: |
-          # Only deploy docs directory for GitHub Pages (documentation site)
-          # Clear any existing content first
+          # Create pages directory
           rm -rf pages
           mkdir -p pages
           
-          if [ -d "docs" ]; then
-            echo "Copying docs directory to pages..."
-            cp -r docs/* pages/ || true
-            echo "Contents of pages directory:"
-            ls -la pages/ || true
-            echo "Checking for web content (should not exist):"
-            ls -la pages/assets 2>/dev/null && echo "ERROR: web assets found!" || echo "OK: No web assets"
-            ls -la pages/index.html 2>/dev/null && echo "Found index.html" || echo "No index.html"
-          else
-            echo "Warning: docs directory not found"
+          # Copy docs-site build output
+          echo "Copying docs-site build output..."
+          cp -r docs-site/dist/* pages/ || true
+          
+          # Copy scripts to root for URL compatibility (https://vstats.zsoft.cc/install.sh)
+          if [ -d "docs-site/dist/scripts" ]; then
+            echo "Copying scripts to root..."
+            cp docs-site/dist/scripts/*.sh pages/ || true
+            cp docs-site/dist/scripts/*.ps1 pages/ || true
           fi
+          
+          # Copy CNAME if exists
+          if [ -f "docs-site/public/CNAME" ]; then
+            cp docs-site/public/CNAME pages/ || true
+          elif [ -f "docs/CNAME" ]; then
+            cp docs/CNAME pages/ || true
+          fi
+          
+          echo "Contents of pages directory:"
+          ls -la pages/ || true
+          echo "Scripts in pages:"
+          ls -la pages/*.sh pages/*.ps1 2>/dev/null || echo "No scripts found"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

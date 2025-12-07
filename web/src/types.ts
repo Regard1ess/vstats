@@ -87,6 +87,8 @@ export interface PingMetrics {
 export interface PingTarget {
   name: string;
   host: string;
+  type?: string; // "icmp" or "tcp"
+  port?: number; // Port for TCP connections
   latency_ms: number | null;
   packet_loss: number;
   status: string;

@@ -3587,3 +3587,31 @@ button:active {
 .theme-minimal .vps-compact-meter-text--minimal {
   color: var(--text-primary);
 }
+
+/* ========================================
+   Settings Page Sidebar
+   ======================================== */
+.settings-sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.settings-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.settings-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.settings-sidebar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

@@ -1,4 +1,4 @@
-module vstats-server
+module vstats
 
 go 1.22
 

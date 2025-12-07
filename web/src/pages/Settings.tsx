@@ -70,6 +70,8 @@ interface RemoteServer {
 interface PingTargetConfig {
   name: string;
   host: string;
+  type?: string; // "icmp" or "tcp", default "icmp"
+  port?: number; // Port for TCP connections, default 80
 }
 
 interface ProbeSettings {
@@ -576,6 +578,7 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [agentStatus, setAgentStatus] = useState<Record<string, boolean>>({});
   const [updatingAgents, setUpdatingAgents] = useState<Record<string, boolean>>({});
+  const [activeSection, setActiveSection] = useState<string>('site-settings');
   
   // Batch update all agents
   const [batchUpdating, setBatchUpdating] = useState(false);
@@ -593,7 +596,7 @@ export default function Settings() {
   
   // New server form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newServer, setNewServer] = useState({ name: '', url: '', location: '', provider: '', tag: '' });
+  const [newServer, setNewServer] = useState({ name: '', url: '', location: '', provider: '', tag: '', group_values: {} as Record<string, string> });
   const [addLoading, setAddLoading] = useState(false);
   
   // Password change
@@ -645,7 +648,8 @@ export default function Settings() {
     price_amount: '',
     price_period: 'month' as 'month' | 'year',
     purchase_date: '',
-    tip_badge: ''
+    tip_badge: '',
+    group_values: {} as Record<string, string>
   });
   const [editLoading, setEditLoading] = useState(false);
   const [editSuccess, setEditSuccess] = useState(false);
@@ -660,7 +664,8 @@ export default function Settings() {
     price_amount: '',
     price_period: 'month' as 'month' | 'year',
     purchase_date: '',
-    tip_badge: ''
+    tip_badge: '',
+    group_values: {} as Record<string, string>
   });
   const [showLocalNodeForm, setShowLocalNodeForm] = useState(false);
   const [localNodeSaving, setLocalNodeSaving] = useState(false);
@@ -725,13 +730,20 @@ export default function Settings() {
       if (res.ok) {
         const data = await res.json();
         const status: Record<string, boolean> = {};
-        data.forEach((s: { server_id: string; online: boolean }) => {
-          status[s.server_id] = s.online;
-        });
-        setAgentStatus(status);
+        // Check if data is an array before calling forEach
+        if (Array.isArray(data)) {
+          data.forEach((s: { server_id: string; online: boolean }) => {
+            status[s.server_id] = s.online;
+          });
+          setAgentStatus(status);
+        } else {
+          console.warn('Expected array but got:', typeof data, data);
+          setAgentStatus({});
+        }
       }
     } catch (e) {
       console.error('Failed to fetch agent status', e);
+      setAgentStatus({});
     }
   };
   
@@ -851,7 +863,10 @@ export default function Settings() {
       });
       if (res.ok) {
         const data = await res.json();
-        setLocalNodeConfig(data);
+        setLocalNodeConfig({
+          ...data,
+          group_values: data.group_values || {}
+        });
       }
     } catch (e) {
       console.error('Failed to fetch local node config', e);
@@ -863,13 +878,20 @@ export default function Settings() {
     setLocalNodeSuccess(false);
     
     try {
+      // Auto-sync tag to group_values
+      const syncedGroupValues = await syncTagToGroupValues(localNodeConfig.tag);
+      const configData = {
+        ...localNodeConfig,
+        group_values: { ...localNodeConfig.group_values, ...syncedGroupValues }
+      };
+      
       const res = await fetch('/api/settings/local-node', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(localNodeConfig)
+        body: JSON.stringify(configData)
       });
       
       if (res.ok) {
@@ -1032,13 +1054,109 @@ export default function Settings() {
   const addPingTarget = () => {
     setProbeSettings({
       ...probeSettings,
-      ping_targets: [...probeSettings.ping_targets, { name: '', host: '' }]
+      ping_targets: [...probeSettings.ping_targets, { name: '', host: '', type: 'icmp', port: 80 }]
     });
   };
   
   // ============================================================================
   // Dimension Management Functions
   // ============================================================================
+  
+  // Auto-sync tag to group_values: ensure "标签" dimension exists and sync tag value
+  const syncTagToGroupValues = async (tag: string): Promise<Record<string, string>> => {
+    if (!tag || !tag.trim()) {
+      return {};
+    }
+    
+    const tagValue = tag.trim();
+    const tagDimensionKey = 'tag';
+    
+    // Find or create "标签" dimension
+    let tagDimension = dimensions.find(d => d.key === tagDimensionKey);
+    
+    if (!tagDimension) {
+      // Create the "标签" dimension
+      try {
+        const res = await fetch('/api/dimensions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: '标签',
+            key: tagDimensionKey,
+            enabled: true,
+            sort_order: dimensions.length
+          })
+        });
+        
+        if (res.ok) {
+          const newDimension = await res.json();
+          tagDimension = newDimension;
+          setDimensions(prev => [...prev, newDimension]);
+        } else {
+          console.error('Failed to create tag dimension');
+          return {};
+        }
+      } catch (e) {
+        console.error('Failed to create tag dimension', e);
+        return {};
+      }
+    }
+    
+    // Ensure tagDimension exists
+    if (!tagDimension) {
+      return {};
+    }
+    
+    // Find or create the option for this tag value
+    let tagOption = tagDimension.options.find(o => o.name === tagValue);
+    
+    if (!tagOption) {
+      // Create the option
+      try {
+        const res = await fetch(`/api/dimensions/${tagDimension.id}/options`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: tagValue,
+            sort_order: tagDimension.options.length
+          })
+        });
+        
+        if (res.ok) {
+          const newOption = await res.json();
+          tagOption = newOption;
+          // Update dimensions state
+          setDimensions(prev => prev.map(d => 
+            d.id === tagDimension!.id 
+              ? { ...d, options: [...d.options, newOption] }
+              : d
+          ));
+        } else {
+          console.error('Failed to create tag option');
+          return {};
+        }
+      } catch (e) {
+        console.error('Failed to create tag option', e);
+        return {};
+      }
+    }
+    
+    // Ensure tagOption exists
+    if (!tagOption) {
+      return {};
+    }
+    
+    // Return group_values with tag dimension mapped
+    return {
+      [tagDimension.id]: tagOption.id
+    };
+  };
   
   const fetchDimensions = async () => {
     try {
@@ -1294,9 +1412,13 @@ export default function Settings() {
     });
   };
   
-  const updatePingTarget = (index: number, field: 'name' | 'host', value: string) => {
+  const updatePingTarget = (index: number, field: 'name' | 'host' | 'type' | 'port', value: string | number) => {
     const newTargets = [...probeSettings.ping_targets];
-    newTargets[index] = { ...newTargets[index], [field]: value };
+    if (field === 'port') {
+      newTargets[index] = { ...newTargets[index], [field]: typeof value === 'number' ? value : parseInt(value as string) || 80 };
+    } else {
+      newTargets[index] = { ...newTargets[index], [field]: value };
+    }
     setProbeSettings({ ...probeSettings, ping_targets: newTargets });
   };
   
@@ -1481,7 +1603,8 @@ export default function Settings() {
       price_amount: server.price_amount || '',
       price_period: (server.price_period as 'month' | 'year') || 'month',
       purchase_date: server.purchase_date || '',
-      tip_badge: server.tip_badge || ''
+      tip_badge: server.tip_badge || '',
+      group_values: server.group_values ? { ...server.group_values } : {}
     });
   };
   
@@ -1499,6 +1622,9 @@ export default function Settings() {
     setEditError(null);
     
     try {
+      // Auto-sync tag to group_values
+      const syncedGroupValues = await syncTagToGroupValues(editForm.tag);
+      
       // 发送所有字段，空字符串表示清空该字段（除了name）
       const updateData: Record<string, any> = {
         name: editForm.name.trim(),
@@ -1520,6 +1646,9 @@ export default function Settings() {
       if (editForm.tip_badge.trim()) {
         updateData.tip_badge = editForm.tip_badge.trim();
       }
+      
+      // Merge synced tag group_values with existing group_values
+      updateData.group_values = { ...editForm.group_values, ...syncedGroupValues };
       
       const res = await fetch(`/api/servers/${editingServer}`, {
         method: 'PUT',
@@ -1544,7 +1673,8 @@ export default function Settings() {
             price_amount: '',
             price_period: 'month',
             purchase_date: '',
-            tip_badge: ''
+            tip_badge: '',
+            group_values: {}
           });
           setEditSuccess(false);
         }, 1500);
@@ -1565,19 +1695,26 @@ export default function Settings() {
     setAddLoading(true);
     
     try {
+      // Auto-sync tag to group_values
+      const syncedGroupValues = await syncTagToGroupValues(newServer.tag);
+      const serverData = {
+        ...newServer,
+        group_values: { ...newServer.group_values, ...syncedGroupValues }
+      };
+      
       const res = await fetch('/api/servers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(newServer)
+        body: JSON.stringify(serverData)
       });
       
       if (res.ok) {
         const server = await res.json();
         setServers([...servers, server]);
-        setNewServer({ name: '', url: '', location: '', provider: '', tag: '' });
+        setNewServer({ name: '', url: '', location: '', provider: '', tag: '', group_values: {} });
         setShowAddForm(false);
       }
     } catch (e) {
@@ -1644,6 +1781,11 @@ export default function Settings() {
     }
   };
 
+
+  const switchSection = (sectionId: string) => {
+    setActiveSection(sectionId);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -1653,34 +1795,172 @@ export default function Settings() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6 lg:p-10 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/')}
-            className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-            title={t('settings.backToDashboard')}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
-            <p className="text-gray-500 text-sm">{t('settings.serverManagement')}</p>
+    <div className="min-h-screen flex">
+      {/* Fixed Sidebar */}
+      <aside className="settings-sidebar hidden lg:flex flex-col w-72 border-r border-white/10 bg-black/20 backdrop-blur-sm">
+        <div className="p-6 border-b border-white/10">
+          <div className="flex items-center gap-3 mb-4">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              title={t('settings.backToDashboard')}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-white">{t('settings.title')}</h1>
+              <p className="text-gray-500 text-xs">{t('settings.serverManagement')}</p>
+            </div>
           </div>
+          <button
+            onClick={logout}
+            className="w-full px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-colors"
+          >
+            {t('settings.logout')}
+          </button>
         </div>
-        <button
-          onClick={logout}
-          className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-colors"
-        >
-          {t('settings.logout')}
-        </button>
-      </div>
+        
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {/* Site Settings */}
+          <button
+            onClick={() => switchSection('site-settings')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'site-settings'
+                ? 'bg-blue-500/20 text-blue-400 border-blue-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+              <span className="text-sm font-bold">{t('settings.siteSettings')}</span>
+            </div>
+          </button>
+
+          {/* Probe Settings */}
+          <button
+            onClick={() => switchSection('probe-settings')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'probe-settings'
+                ? 'bg-purple-500/20 text-purple-400 border-purple-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+              <span className="text-sm font-bold">{t('settings.probeSettings')}</span>
+            </div>
+          </button>
+
+          {/* OAuth Settings */}
+          <button
+            onClick={() => switchSection('oauth-settings')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'oauth-settings'
+                ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span className="text-sm font-bold">OAuth 2.0 登录</span>
+            </div>
+          </button>
+
+          {/* Group Dimensions */}
+          <button
+            onClick={() => switchSection('group-dimensions')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'group-dimensions'
+                ? 'bg-orange-500/20 text-orange-400 border-orange-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+              <span className="text-sm font-bold">分组维度</span>
+            </div>
+          </button>
+
+          {/* Server Management */}
+          <button
+            onClick={() => switchSection('server-management')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'server-management'
+                ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="text-sm font-bold">Server Management</span>
+            </div>
+          </button>
+
+          {/* Theme Settings */}
+          <button
+            onClick={() => switchSection('theme-settings')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'theme-settings'
+                ? 'bg-pink-500/20 text-pink-400 border-pink-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-pink-500"></span>
+              <span className="text-sm font-bold">Theme Settings</span>
+            </div>
+          </button>
+
+          {/* Security */}
+          <button
+            onClick={() => switchSection('security')}
+            className={`w-full text-left p-4 rounded-xl transition-all border ${
+              activeSection === 'security'
+                ? 'bg-purple-500/20 text-purple-400 border-purple-500/30 shadow-lg'
+                : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10 hover:border-white/20'
+            }`}
+          >
+            <div className="flex items-center gap-3 mb-1">
+              <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+              <span className="text-sm font-bold">Security</span>
+            </div>
+          </button>
+        </nav>
+      </aside>
+
+      {/* Main Content Area */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="p-4 md:p-6 lg:p-10 max-w-4xl mx-auto">
+          {/* Mobile Header */}
+          <div className="lg:hidden flex items-center justify-between mb-8">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => navigate('/')}
+                className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                title={t('settings.backToDashboard')}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div>
+                <h1 className="text-2xl font-bold text-white">{t('settings.title')}</h1>
+                <p className="text-gray-500 text-sm">{t('settings.serverManagement')}</p>
+              </div>
+            </div>
+            <button
+              onClick={logout}
+              className="px-4 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium transition-colors"
+            >
+              {t('settings.logout')}
+            </button>
+          </div>
 
       {/* Site Settings Section */}
-      <div className="nezha-card p-6 mb-6">
+      {activeSection === 'site-settings' && (
+      <div data-section="site-settings" className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -1794,9 +2074,11 @@ export default function Settings() {
           </div>
         )}
       </div>
+      )}
 
       {/* Probe Settings Section */}
-      <div className="nezha-card p-6 mb-6">
+      {activeSection === 'probe-settings' && (
+      <div data-section="probe-settings" className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-purple-500"></span>
@@ -1811,8 +2093,8 @@ export default function Settings() {
         </div>
         
         <p className="text-gray-400 text-sm mb-4">
-          Configure ping targets for latency monitoring. Agents will ping these IPs and report latency.
-          Common use case: monitor latency to major carriers for return routes.
+          Configure ping targets for latency monitoring. Agents will test connectivity to these targets and report latency.
+          Supports both ICMP ping and TCP connection tests. TCP is useful when ICMP is blocked or you want to test actual service connectivity.
         </p>
         
         {probeSuccess && (
@@ -1841,21 +2123,40 @@ export default function Settings() {
             ) : (
               <div className="space-y-3">
                 {probeSettings.ping_targets.map((target, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div key={index} className="flex items-center gap-2 flex-wrap">
                     <input
                       type="text"
                       value={target.name}
                       onChange={(e) => updatePingTarget(index, 'name', e.target.value)}
-                      className="w-40 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
-                      placeholder="Name (e.g., CT)"
+                      className="w-32 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                      placeholder="Name"
                     />
                     <input
                       type="text"
                       value={target.host}
                       onChange={(e) => updatePingTarget(index, 'host', e.target.value)}
-                      className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50 font-mono"
-                      placeholder="IP Address (e.g., 202.97.1.1)"
+                      className="flex-1 min-w-[150px] px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50 font-mono"
+                      placeholder="Host/IP"
                     />
+                    <select
+                      value={target.type || 'icmp'}
+                      onChange={(e) => updatePingTarget(index, 'type', e.target.value)}
+                      className="w-24 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option value="icmp">ICMP</option>
+                      <option value="tcp">TCP</option>
+                    </select>
+                    {target.type === 'tcp' && (
+                      <input
+                        type="number"
+                        value={target.port || 80}
+                        onChange={(e) => updatePingTarget(index, 'port', parseInt(e.target.value) || 80)}
+                        className="w-20 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                        placeholder="Port"
+                        min="1"
+                        max="65535"
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => removePingTarget(index)}
@@ -1891,9 +2192,11 @@ export default function Settings() {
           </div>
         )}
       </div>
+      )}
 
       {/* OAuth Settings Section */}
-      <div className="nezha-card p-6 mb-6">
+      {activeSection === 'oauth-settings' && (
+      <div data-section="oauth-settings" className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-500"></span>
@@ -1996,9 +2299,11 @@ export default function Settings() {
           </div>
         )}
       </div>
+      )}
 
       {/* Dimension Management Section */}
-      <div className="nezha-card p-6 mb-6">
+      {activeSection === 'group-dimensions' && (
+      <div data-section="group-dimensions" className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-orange-500"></span>
@@ -2320,8 +2625,10 @@ export default function Settings() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Quick Install Section */}
+      {/* Quick Install Section - Part of Group Dimensions */}
+      {activeSection === 'group-dimensions' && (
       <div className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -2399,9 +2706,11 @@ export default function Settings() {
           </div>
         )}
       </div>
+      )}
 
       {/* Server Management Section - Combined Local + Agents */}
-      <div className="nezha-card p-6 mb-6">
+      {activeSection === 'server-management' && (
+      <div data-section="server-management" className="nezha-card p-6 mb-6">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -2448,6 +2757,7 @@ export default function Settings() {
                   className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
                   placeholder="e.g., Production, Test"
                 />
+                <p className="text-xs text-gray-600 mt-1">标签会自动同步到"标签"分组维度</p>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Location Code</label>
@@ -2470,6 +2780,46 @@ export default function Settings() {
                 />
               </div>
             </div>
+            
+            {/* Group Dimensions Selection */}
+            {dimensions.length > 0 && (
+              <div className="mb-4 pt-4 border-t border-white/10">
+                <label className="block text-xs text-gray-500 mb-3">分组标签</label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {dimensions
+                    .filter(dim => dim.enabled)
+                    .sort((a, b) => a.sort_order - b.sort_order)
+                    .map((dimension) => (
+                      <div key={dimension.id}>
+                        <label className="block text-xs text-gray-400 mb-1">{dimension.name}</label>
+                        <select
+                          value={newServer.group_values[dimension.id] || ''}
+                          onChange={(e) => {
+                            const newGroupValues = { ...newServer.group_values };
+                            if (e.target.value) {
+                              newGroupValues[dimension.id] = e.target.value;
+                            } else {
+                              delete newGroupValues[dimension.id];
+                            }
+                            setNewServer({ ...newServer, group_values: newGroupValues });
+                          }}
+                          className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                        >
+                          <option value="">-- 未选择 --</option>
+                          {dimension.options
+                            .sort((a, b) => a.sort_order - b.sort_order)
+                            .map((option) => (
+                              <option key={option.id} value={option.id}>
+                                {option.name}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+            
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowAddForm(false)} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm transition-colors">
                 Cancel
@@ -2560,6 +2910,7 @@ export default function Settings() {
                       className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
                       placeholder="e.g., Dashboard, Main"
                     />
+                    <p className="text-xs text-gray-600 mt-1">标签会自动同步到"标签"分组维度</p>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Location</label>
@@ -2636,6 +2987,45 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+                
+                {/* Group Dimensions Selection */}
+                {dimensions.length > 0 && (
+                  <div className="pt-4 border-t border-emerald-500/10 mb-4">
+                    <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">分组标签</div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {dimensions
+                        .filter(dim => dim.enabled)
+                        .sort((a, b) => a.sort_order - b.sort_order)
+                        .map((dimension) => (
+                          <div key={dimension.id}>
+                            <label className="block text-xs text-gray-400 mb-1">{dimension.name}</label>
+                            <select
+                              value={localNodeConfig.group_values[dimension.id] || ''}
+                              onChange={(e) => {
+                                const newGroupValues = { ...localNodeConfig.group_values };
+                                if (e.target.value) {
+                                  newGroupValues[dimension.id] = e.target.value;
+                                } else {
+                                  delete newGroupValues[dimension.id];
+                                }
+                                setLocalNodeConfig({ ...localNodeConfig, group_values: newGroupValues });
+                              }}
+                              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                            >
+                              <option value="">-- 未选择 --</option>
+                              {dimension.options
+                                .sort((a, b) => a.sort_order - b.sort_order)
+                                .map((option) => (
+                                  <option key={option.id} value={option.id}>
+                                    {option.name}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="flex justify-end">
                   <button
@@ -2857,6 +3247,7 @@ export default function Settings() {
                             className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
                             placeholder="e.g., Production, Test"
                           />
+                          <p className="text-xs text-gray-600 mt-1">标签会自动同步到"标签"分组维度</p>
                         </div>
                         <div>
                           <label className="block text-xs text-gray-500 mb-1">Location</label>
@@ -2933,6 +3324,46 @@ export default function Settings() {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Group Dimensions Selection */}
+                      {dimensions.length > 0 && (
+                        <div className="pt-3 border-t border-white/5 mb-3">
+                          <div className="text-xs text-gray-500 uppercase tracking-wider mb-3">分组标签</div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {dimensions
+                              .filter(dim => dim.enabled)
+                              .sort((a, b) => a.sort_order - b.sort_order)
+                              .map((dimension) => (
+                                <div key={dimension.id}>
+                                  <label className="block text-xs text-gray-400 mb-1">{dimension.name}</label>
+                                  <select
+                                    value={editForm.group_values[dimension.id] || ''}
+                                    onChange={(e) => {
+                                      const newGroupValues = { ...editForm.group_values };
+                                      if (e.target.value) {
+                                        newGroupValues[dimension.id] = e.target.value;
+                                      } else {
+                                        delete newGroupValues[dimension.id];
+                                      }
+                                      setEditForm({ ...editForm, group_values: newGroupValues });
+                                    }}
+                                    className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500/50"
+                                  >
+                                    <option value="">-- 未选择 --</option>
+                                    {dimension.options
+                                      .sort((a, b) => a.sort_order - b.sort_order)
+                                      .map((option) => (
+                                        <option key={option.id} value={option.id}>
+                                          {option.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => {
@@ -2945,7 +3376,8 @@ export default function Settings() {
                               price_amount: '',
                               price_period: 'month',
                               purchase_date: '',
-                              tip_badge: ''
+                              tip_badge: '',
+                              group_values: {}
                             });
                           }}
                           className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 text-sm transition-colors"
@@ -2988,14 +3420,19 @@ export default function Settings() {
           )}
         </div>
       </div>
+      )}
 
       {/* Theme Settings Section */}
-      <ThemeSettingsSection 
-        isAuthenticated={isAuthenticated}
-        token={token}
-        siteSettings={siteSettings}
-        onSiteSettingsChange={setSiteSettings}
-      />
+      {activeSection === 'theme-settings' && (
+      <div data-section="theme-settings" className="mb-6">
+        <ThemeSettingsSection 
+          isAuthenticated={isAuthenticated}
+          token={token}
+          siteSettings={siteSettings}
+          onSiteSettingsChange={setSiteSettings}
+        />
+      </div>
+      )}
 
       {/* Version Info Section */}
       <div className="nezha-card p-6 mb-6">
@@ -3061,7 +3498,8 @@ export default function Settings() {
       </div>
 
       {/* Security Section */}
-      <div className="nezha-card p-6">
+      {activeSection === 'security' && (
+      <div data-section="security" className="nezha-card p-6">
         <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-6">
           <span className="w-2 h-2 rounded-full bg-purple-500"></span>
           Security
@@ -3098,6 +3536,9 @@ export default function Settings() {
             Change Password
           </button>
         )}
+      </div>
+      )}
+        </div>
       </div>
     </div>
   );
