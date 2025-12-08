@@ -20,3 +20,4 @@ oauth-proxy/node_modules/
 docs-site/node_modules
 docs-site/dist
 server-go/cmd/cli/cli
+docs-site/deploy/dist

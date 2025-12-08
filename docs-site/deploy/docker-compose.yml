@@ -8,22 +8,19 @@ services:
     restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
     volumes:
       # 前端静态文件
       - ./dist:/usr/share/nginx/html:ro
       # Nginx 配置
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      # SSL 证书 (Cloudflare Origin Certificate)
-      - ./ssl:/etc/nginx/ssl:ro
       # 日志
       - nginx_logs:/var/log/nginx
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -66,7 +63,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider http://localhost:3001/health || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3001/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
