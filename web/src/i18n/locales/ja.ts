@@ -43,6 +43,7 @@ export default {
     darkMode: 'ダーク',
     settings: '設定',
     groupBy: 'グループ:',
+    groupByTag: 'タグでグループ化',
     online: 'オンライン',
     offline: 'オフライン',
     download: 'ダウンロード',
@@ -231,7 +232,7 @@ export default {
     passwordChanged: 'パスワードが変更されました',
     passwordMismatch: 'パスワードが一致しません',
     installCommand: 'インストールコマンド',
-    linuxInstall: 'Linux/macOS',
+    linuxInstall: 'Linux / macOS',
     windowsInstall: 'Windows',
     copyCommand: 'コマンドをコピー',
     saved: '保存しました',
@@ -240,6 +241,25 @@ export default {
     deleteFailed: '削除に失敗しました',
     updateSent: '更新コマンドを送信しました！エージェントが再起動します。',
     updateFailed: '更新コマンドの送信に失敗しました',
+    quickInstallTitle: 'エージェントのクイックインストール',
+    showCommand: 'コマンドを表示',
+    hideCommand: 'コマンドを非表示',
+    installInstruction: 'このコマンドを任意のサーバーで実行して監視エージェントをインストールしてください。',
+    noRemoteAgents: '接続されているリモートエージェントはありません',
+    installAgentTip: '上のコマンドを使ってサーバーにエージェントをインストールしてください',
+    addAgent: 'エージェントを追加',
+    configSaved: '設定を保存しました！',
+    locationCode: 'ロケーションコード',
+    versionInfo: 'バージョン情報',
+    checkUpdate: '更新を確認',
+    executeUpgrade: 'アップグレードを実行',
+    forceReinstall: '強制再インストール',
+    reinstalling: '再インストール中...',
+    forceReinstallTooltip: '同じバージョンを強制的に再インストール',
+    security: 'セキュリティ',
+    currentPasswordIncorrect: '現在のパスワードが正しくありません',
+    changePasswordFailed: 'パスワードの変更に失敗しました',
+    passwordTooShort: 'パスワードは4文字以上で入力してください',
   },
 
   toast: {
@@ -254,5 +274,3 @@ export default {
     seconds: '秒',
   },
 };
-
-
