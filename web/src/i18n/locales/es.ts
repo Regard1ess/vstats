@@ -43,6 +43,7 @@ export default {
     darkMode: 'oscuro',
     settings: 'Configuración',
     groupBy: 'Agrupar por:',
+    groupByTag: 'Agrupar por etiqueta',
     online: 'En línea',
     offline: 'Fuera de línea',
     download: 'Descarga',
@@ -231,7 +232,7 @@ export default {
     passwordChanged: 'Contraseña cambiada exitosamente',
     passwordMismatch: 'Las contraseñas no coinciden',
     installCommand: 'Comando de instalación',
-    linuxInstall: 'Linux/macOS',
+    linuxInstall: 'Linux / macOS',
     windowsInstall: 'Windows',
     copyCommand: 'Copiar comando',
     saved: 'Guardado exitosamente',
@@ -240,6 +241,25 @@ export default {
     deleteFailed: 'Error al eliminar',
     updateSent: '¡Comando de actualización enviado! El agente se reiniciará.',
     updateFailed: 'Error al enviar comando de actualización',
+    quickInstallTitle: 'Instalación rápida del agente',
+    showCommand: 'Mostrar comando',
+    hideCommand: 'Ocultar comando',
+    installInstruction: 'Ejecuta este comando en cualquier servidor para instalar el agente de monitoreo.',
+    noRemoteAgents: 'No hay agentes remotos conectados',
+    installAgentTip: 'Instala el agente en un servidor con el comando anterior',
+    addAgent: 'Agregar agente',
+    configSaved: '¡Configuración guardada correctamente!',
+    locationCode: 'Código de ubicación',
+    versionInfo: 'Información de versión',
+    checkUpdate: 'Comprobar actualización',
+    executeUpgrade: 'Ejecutar actualización',
+    forceReinstall: 'Forzar reinstalación',
+    reinstalling: 'Reinstalando...',
+    forceReinstallTooltip: 'Forzar reinstalar la misma versión',
+    security: 'Seguridad',
+    currentPasswordIncorrect: 'La contraseña actual es incorrecta',
+    changePasswordFailed: 'No se pudo cambiar la contraseña',
+    passwordTooShort: 'La contraseña debe tener al menos 4 caracteres',
   },
 
   toast: {
@@ -254,5 +274,3 @@ export default {
     seconds: 's',
   },
 };
-
-

@@ -43,6 +43,7 @@ export default {
     darkMode: 'тёмный',
     settings: 'Настройки',
     groupBy: 'Группировка:',
+    groupByTag: 'Группировать по тегу',
     online: 'Онлайн',
     offline: 'Офлайн',
     download: 'Загрузка',
@@ -231,7 +232,7 @@ export default {
     passwordChanged: 'Пароль успешно изменён',
     passwordMismatch: 'Пароли не совпадают',
     installCommand: 'Команда установки',
-    linuxInstall: 'Linux/macOS',
+    linuxInstall: 'Linux / macOS',
     windowsInstall: 'Windows',
     copyCommand: 'Копировать команду',
     saved: 'Сохранено успешно',
@@ -240,6 +241,25 @@ export default {
     deleteFailed: 'Ошибка удаления',
     updateSent: 'Команда обновления отправлена! Агент перезапустится.',
     updateFailed: 'Ошибка отправки команды обновления',
+    quickInstallTitle: 'Быстрая установка агента',
+    showCommand: 'Показать команду',
+    hideCommand: 'Скрыть команду',
+    installInstruction: 'Выполните эту команду на любом сервере, чтобы установить агент мониторинга.',
+    noRemoteAgents: 'Нет подключенных удалённых агентов',
+    installAgentTip: 'Установите агент на сервер с помощью команды выше',
+    addAgent: 'Добавить агента',
+    configSaved: 'Конфигурация успешно сохранена!',
+    locationCode: 'Код расположения',
+    versionInfo: 'Информация о версии',
+    checkUpdate: 'Проверить обновление',
+    executeUpgrade: 'Выполнить обновление',
+    forceReinstall: 'Принудительно переустановить',
+    reinstalling: 'Переустановка...',
+    forceReinstallTooltip: 'Принудительно переустановить ту же версию',
+    security: 'Безопасность',
+    currentPasswordIncorrect: 'Текущий пароль неверен',
+    changePasswordFailed: 'Не удалось изменить пароль',
+    passwordTooShort: 'Пароль должен быть не короче 4 символов',
   },
 
   toast: {
@@ -254,5 +274,3 @@ export default {
     seconds: 'с',
   },
 };
-
-

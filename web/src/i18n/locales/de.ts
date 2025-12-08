@@ -43,6 +43,7 @@ export default {
     darkMode: 'dunklen',
     settings: 'Einstellungen',
     groupBy: 'Gruppieren:',
+    groupByTag: 'Nach Tag gruppieren',
     online: 'Online',
     offline: 'Offline',
     download: 'Download',
@@ -231,7 +232,7 @@ export default {
     passwordChanged: 'Passwort erfolgreich geändert',
     passwordMismatch: 'Passwörter stimmen nicht überein',
     installCommand: 'Installationsbefehl',
-    linuxInstall: 'Linux/macOS',
+    linuxInstall: 'Linux / macOS',
     windowsInstall: 'Windows',
     copyCommand: 'Befehl kopieren',
     saved: 'Erfolgreich gespeichert',
@@ -240,6 +241,25 @@ export default {
     deleteFailed: 'Löschen fehlgeschlagen',
     updateSent: 'Update-Befehl gesendet! Der Agent wird neu starten.',
     updateFailed: 'Update-Befehl konnte nicht gesendet werden',
+    quickInstallTitle: 'Agent schnell installieren',
+    showCommand: 'Befehl anzeigen',
+    hideCommand: 'Befehl ausblenden',
+    installInstruction: 'Führe diesen Befehl auf einem Server aus, um den Monitoring-Agenten zu installieren.',
+    noRemoteAgents: 'Keine Remote-Agenten verbunden',
+    installAgentTip: 'Installiere den Agenten auf einem Server mit dem obigen Befehl',
+    addAgent: 'Agent hinzufügen',
+    configSaved: 'Konfiguration erfolgreich gespeichert!',
+    locationCode: 'Standort-Code',
+    versionInfo: 'Versionsinformationen',
+    checkUpdate: 'Update prüfen',
+    executeUpgrade: 'Upgrade ausführen',
+    forceReinstall: 'Neuinstallation erzwingen',
+    reinstalling: 'Neuinstallation...',
+    forceReinstallTooltip: 'Gleiche Version erneut installieren erzwingen',
+    security: 'Sicherheit',
+    currentPasswordIncorrect: 'Aktuelles Passwort ist falsch',
+    changePasswordFailed: 'Passwortänderung fehlgeschlagen',
+    passwordTooShort: 'Passwort muss mindestens 4 Zeichen lang sein',
   },
 
   toast: {
@@ -254,5 +274,3 @@ export default {
     seconds: 's',
   },
 };
-
-
