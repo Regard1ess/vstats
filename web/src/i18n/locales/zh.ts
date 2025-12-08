@@ -252,7 +252,7 @@ export default {
     passwordMismatch: '两次密码不一致',
     // Install command
     installCommand: '安装命令',
-    linuxInstall: 'Linux/macOS',
+    linuxInstall: 'Linux / macOS',
     windowsInstall: 'Windows',
     copyCommand: '复制命令',
     // Messages
@@ -262,6 +262,28 @@ export default {
     deleteFailed: '删除失败',
     updateSent: '更新命令已发送！代理将重新启动。',
     updateFailed: '发送更新命令失败',
+    // Quick install
+    quickInstallTitle: '快速安装节点端',
+    showCommand: '显示命令',
+    hideCommand: '隐藏命令',
+    installInstruction: '请使用上方提供的命令在远程服务器上安装节点端',
+    noRemoteAgents: '没有已连接的远程节点',
+    installAgentTip: '请使用上方提供的命令在远程服务器上安装节点端',
+    addAgent: '添加节点',
+    configSaved: '配置已保存！',
+    locationCode: '位置代码',
+    // Version info
+    versionInfo: '版本信息',
+    checkUpdate: '检查更新',
+    executeUpgrade: '执行升级',
+    forceReinstall: '强制重装',
+    reinstalling: '重装中...',
+    forceReinstallTooltip: '强制重装当前版本',
+    // Security
+    security: '安全',
+    currentPasswordIncorrect: '当前密码不正确',
+    changePasswordFailed: '修改密码失败',
+    passwordTooShort: '密码至少需要 4 个字符',
   },
 
   // Toast messages
@@ -278,5 +300,3 @@ export default {
     seconds: '秒',
   },
 };
-
-

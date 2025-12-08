@@ -252,7 +252,7 @@ export default {
     passwordMismatch: 'Passwords do not match',
     // Install command
     installCommand: 'Install Command',
-    linuxInstall: 'Linux/macOS',
+    linuxInstall: 'Linux / macOS',
     windowsInstall: 'Windows',
     copyCommand: 'Copy Command',
     // Messages
@@ -262,6 +262,28 @@ export default {
     deleteFailed: 'Failed to delete',
     updateSent: 'Update command sent! The agent will restart.',
     updateFailed: 'Failed to send update command',
+    // Quick install
+    quickInstallTitle: 'Quick Install Agent',
+    showCommand: 'Show Command',
+    hideCommand: 'Hide Command',
+    installInstruction: 'Run this command on any server to install the monitoring agent.',
+    noRemoteAgents: 'No remote agents connected',
+    installAgentTip: 'Install the agent on a server using the command above',
+    addAgent: 'Add Agent',
+    configSaved: 'Configuration saved successfully!',
+    locationCode: 'Location Code',
+    // Version info
+    versionInfo: 'Version Information',
+    checkUpdate: 'Check Update',
+    executeUpgrade: 'Execute Upgrade',
+    forceReinstall: 'Force Reinstall',
+    reinstalling: 'Reinstalling...',
+    forceReinstallTooltip: 'Force reinstall the same version',
+    // Security
+    security: 'Security',
+    currentPasswordIncorrect: 'Current password is incorrect',
+    changePasswordFailed: 'Failed to change password',
+    passwordTooShort: 'Password must be at least 4 characters',
   },
 
   // Toast messages
@@ -278,5 +300,3 @@ export default {
     seconds: 's',
   },
 };
-
-
