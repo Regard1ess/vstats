@@ -260,3 +260,116 @@ func CountWSConnections(ctx context.Context, connType string) (int64, error) {
 	}
 	return int64(len(keys)), nil
 }
+
+// ============================================================================
+// Release Cache (for GitHub releases)
+// ============================================================================
+
+const (
+	PrefixRelease = "vstats:release:"
+	PrefixBinary  = "vstats:binary:"
+)
+
+// ReleaseInfo represents cached release info
+type ReleaseInfo struct {
+	Version     string            `json:"version"`
+	Name        string            `json:"name"`
+	Body        string            `json:"body"`
+	PublishedAt string            `json:"published_at"`
+	Assets      map[string]string `json:"assets"`
+	CachedAt    int64             `json:"cached_at"`
+}
+
+// SetReleaseInfo caches release info
+func SetReleaseInfo(ctx context.Context, info *ReleaseInfo, expiry time.Duration) error {
+	jsonData, err := json.Marshal(info)
+	if err != nil {
+		return err
+	}
+	return client.Set(ctx, PrefixRelease+"latest", jsonData, expiry).Err()
+}
+
+// GetReleaseInfo retrieves cached release info
+func GetReleaseInfo(ctx context.Context) (*ReleaseInfo, error) {
+	val, err := client.Get(ctx, PrefixRelease+"latest").Result()
+	if err != nil {
+		return nil, err
+	}
+
+	var info ReleaseInfo
+	if err := json.Unmarshal([]byte(val), &info); err != nil {
+		return nil, err
+	}
+
+	return &info, nil
+}
+
+// DeleteReleaseInfo removes cached release info
+func DeleteReleaseInfo(ctx context.Context) error {
+	return client.Del(ctx, PrefixRelease+"latest").Err()
+}
+
+// BinaryCache represents cached binary data
+type BinaryCache struct {
+	Data        []byte `json:"data"`
+	ContentType string `json:"content_type"`
+	Size        int64  `json:"size"`
+	CachedAt    int64  `json:"cached_at"`
+}
+
+// SetBinaryCache caches binary data
+func SetBinaryCache(ctx context.Context, version, name string, data []byte, contentType string, expiry time.Duration) error {
+	// Don't cache files larger than 100MB
+	if len(data) > 100*1024*1024 {
+		return fmt.Errorf("binary too large to cache: %d bytes", len(data))
+	}
+
+	cache := &BinaryCache{
+		Data:        data,
+		ContentType: contentType,
+		Size:        int64(len(data)),
+		CachedAt:    time.Now().Unix(),
+	}
+
+	jsonData, err := json.Marshal(cache)
+	if err != nil {
+		return err
+	}
+
+	key := PrefixBinary + version + ":" + name
+	return client.Set(ctx, key, jsonData, expiry).Err()
+}
+
+// GetBinaryCache retrieves cached binary data
+func GetBinaryCache(ctx context.Context, version, name string) ([]byte, string, error) {
+	key := PrefixBinary + version + ":" + name
+	val, err := client.Get(ctx, key).Result()
+	if err != nil {
+		return nil, "", err
+	}
+
+	var cache BinaryCache
+	if err := json.Unmarshal([]byte(val), &cache); err != nil {
+		return nil, "", err
+	}
+
+	return cache.Data, cache.ContentType, nil
+}
+
+// DeleteBinaryCache removes cached binary
+func DeleteBinaryCache(ctx context.Context, version, name string) error {
+	key := PrefixBinary + version + ":" + name
+	return client.Del(ctx, key).Err()
+}
+
+// ClearAllBinaryCache removes all cached binaries
+func ClearAllBinaryCache(ctx context.Context) error {
+	keys, err := client.Keys(ctx, PrefixBinary+"*").Result()
+	if err != nil {
+		return err
+	}
+	if len(keys) > 0 {
+		return client.Del(ctx, keys...).Err()
+	}
+	return nil
+}

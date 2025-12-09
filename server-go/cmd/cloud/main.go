@@ -79,6 +79,14 @@ func main() {
 	r.GET("/health/detailed", handlers.HealthCheckDetailed)
 	r.GET("/version", handlers.Version)
 
+	// Release/Download endpoints (for install scripts)
+	r.GET("/api/release/latest", handlers.GetLatestVersion)
+	r.GET("/api/release/version", handlers.GetLatestVersionText)
+	r.GET("/api/release/assets", handlers.ListAssets)
+	r.GET("/api/release/refresh", handlers.RefreshCache)
+	r.GET("/download/latest/:name", handlers.DownloadBinary)
+	r.GET("/download/:version/:name", handlers.DownloadBinaryVersion)
+
 	// OAuth
 	r.GET("/api/auth/providers", handlers.GetOAuthProviders)
 	r.GET("/api/auth/oauth/github", handlers.GitHubOAuthStart)

@@ -40,7 +40,34 @@ func main() {
 			// Try to signal running server to reload config
 			if err := findAndSignalServer(); err != nil {
 				fmt.Printf("\n⚠️  %v\n", err)
-				fmt.Println("   If server is running, please restart it manually.")
+
+				// Provide specific help based on error type
+				if sigErr, ok := err.(*SignalError); ok {
+					switch sigErr.Type {
+					case "permission_denied":
+						fmt.Println("\n💡 The server is running but you don't have permission to signal it.")
+						fmt.Println("   Try one of the following:")
+						fmt.Printf("     1. Run with sudo: sudo %s --reset-password\n", os.Args[0])
+						fmt.Println("     2. Restart the service: sudo systemctl restart vstats")
+					case "not_found":
+						fmt.Println("\n💡 No running server found. The new password will take effect")
+						fmt.Println("   when the server starts.")
+					default:
+						// Check if Windows (SignalError message contains "Windows")
+						if strings.Contains(sigErr.Message, "Windows") {
+							fmt.Println("\n💡 Please restart the server manually:")
+							fmt.Println("     - Stop the service: sc stop vstats")
+							fmt.Println("     - Start the service: sc start vstats")
+							fmt.Println("   Or restart from Services management console.")
+						} else {
+							fmt.Println("\n💡 Please restart the server manually:")
+							fmt.Println("     systemctl restart vstats")
+						}
+					}
+				} else {
+					fmt.Println("   If server is running, please restart it manually:")
+					fmt.Println("     systemctl restart vstats")
+				}
 			} else {
 				fmt.Println("\n✅ Server has been notified to reload the new password.")
 			}
@@ -68,7 +95,7 @@ func main() {
 		fmt.Printf("║  Admin password: %-44s ║\n", *initialPassword)
 		fmt.Println("║                                                                ║")
 		fmt.Println("║  ⚠️  Save this password! It won't be shown again.              ║")
-		fmt.Println("║  To reset: ./vstats-server --reset-password                    ║")
+		fmt.Println("║  To reset: sudo /opt/vstats/vstats-server --reset-password     ║")
 		fmt.Println("╚════════════════════════════════════════════════════════════════╝")
 	}
 
@@ -239,7 +266,7 @@ func main() {
 
 	fmt.Printf("🚀 Server running on http://0.0.0.0:%s\n", port)
 	fmt.Printf("📡 Agent WebSocket: ws://0.0.0.0:%s/ws/agent\n", port)
-	fmt.Printf("🔑 Reset password: ./vstats-server --reset-password\n")
+	fmt.Printf("🔑 Reset password: sudo /opt/vstats/vstats-server --reset-password\n")
 
 	if err := r.Run(":" + port); err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)

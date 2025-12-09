@@ -23,6 +23,9 @@ NC='\033[0m' # No Color
 INSTALL_DIR="/opt/vstats"
 SERVICE_NAME="vstats"
 DEFAULT_PORT=3001
+VSTATS_API="https://vstats.zsoft.cc"
+VSTATS_DOWNLOAD="${VSTATS_API}/download"
+# Fallback to GitHub if vstats.zsoft.cc is unavailable
 GITHUB_REPO="zsai001/vstats"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
 GITHUB_DOWNLOAD="https://github.com/${GITHUB_REPO}/releases/download"
@@ -78,20 +81,32 @@ detect_system() {
     info "Detected: $OS-$ARCH"
 }
 
-# Get latest version from GitHub
+# Get latest version (try vstats.zsoft.cc first, then GitHub)
 get_latest_version() {
     info "Fetching latest version..."
     
+    # Try vstats.zsoft.cc first (faster, cached)
     if command -v curl &> /dev/null; then
-        LATEST_VERSION=$(curl -fsSL "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        LATEST_VERSION=$(curl -fsSL "${VSTATS_API}/api/release/version" 2>/dev/null)
     elif command -v wget &> /dev/null; then
-        LATEST_VERSION=$(wget -qO- "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        LATEST_VERSION=$(wget -qO- "${VSTATS_API}/api/release/version" 2>/dev/null)
     else
         error "curl or wget is required"
     fi
     
+    # Fallback to GitHub if vstats.zsoft.cc failed
     if [ -z "$LATEST_VERSION" ]; then
-        error "Could not fetch latest version from GitHub. This may be due to rate limiting. Please try again later or check your network connection."
+        warn "Falling back to GitHub API..."
+        if command -v curl &> /dev/null; then
+            LATEST_VERSION=$(curl -fsSL "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        elif command -v wget &> /dev/null; then
+            LATEST_VERSION=$(wget -qO- "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        fi
+        USE_GITHUB_DOWNLOAD=true
+    fi
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        error "Could not fetch latest version. Please check your network connection."
     fi
     
     success "Latest version: $LATEST_VERSION"
@@ -139,7 +154,12 @@ download_binary() {
     # Construct download URL (Go binary naming: vstats-server-{os}-{arch})
     BINARY_NAME="vstats-server-${OS}-${ARCH}"
     
-    DOWNLOAD_URL="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/${BINARY_NAME}"
+    # Use vstats.zsoft.cc if available, fallback to GitHub
+    if [ "$USE_GITHUB_DOWNLOAD" = true ]; then
+        DOWNLOAD_URL="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/${BINARY_NAME}"
+    else
+        DOWNLOAD_URL="${VSTATS_DOWNLOAD}/latest/${BINARY_NAME}"
+    fi
     
     info "Downloading from: $DOWNLOAD_URL"
     
@@ -159,6 +179,11 @@ download_binary() {
                 rm -f "$INSTALL_DIR/vstats-server"
             fi
         else
+            # If vstats.zsoft.cc failed, try GitHub directly
+            if [ "$USE_GITHUB_DOWNLOAD" != true ] && [ $retry -eq 1 ]; then
+                warn "Falling back to GitHub download..."
+                DOWNLOAD_URL="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/${BINARY_NAME}"
+            fi
             warn "Download attempt $((retry + 1)) failed, retrying..."
         fi
         retry=$((retry + 1))
@@ -172,9 +197,14 @@ download_binary() {
 download_web() {
     info "Downloading web assets..."
     
-    # Try tar.gz first, then zip
-    WEB_URL_TAR="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.tar.gz"
-    WEB_URL_ZIP="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.zip"
+    # Use vstats.zsoft.cc if available, fallback to GitHub
+    if [ "$USE_GITHUB_DOWNLOAD" = true ]; then
+        WEB_URL_TAR="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.tar.gz"
+        WEB_URL_ZIP="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/web-dist.zip"
+    else
+        WEB_URL_TAR="${VSTATS_DOWNLOAD}/latest/web-dist.tar.gz"
+        WEB_URL_ZIP="${VSTATS_DOWNLOAD}/latest/web-dist.zip"
+    fi
     
     if curl -L --fail --silent "$WEB_URL_TAR" -o "/tmp/vstats-web.tar.gz" 2>/dev/null; then
         tar -xzf "/tmp/vstats-web.tar.gz" -C "$INSTALL_DIR/web"
@@ -204,28 +234,14 @@ download_web() {
 
 # Generate configuration
 generate_config() {
-    info "Generating configuration..."
+    info "Checking configuration..."
     
-    # Generate random password if not exists
-    if [ ! -f "$INSTALL_DIR/data/vstats-config.json" ]; then
-        ADMIN_PASS=$(openssl rand -base64 12 | tr -dc 'a-zA-Z0-9' | head -c 12 || head -c 12 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 12)
-        
-        cat > "$INSTALL_DIR/data/vstats-config.json" << EOF
-{
-  "port": $DEFAULT_PORT,
-  "admin_password": "$ADMIN_PASS",
-  "servers": []
-}
-EOF
-        
-        echo ""
-        echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-        echo -e "${GREEN}  Admin Password: ${YELLOW}$ADMIN_PASS${NC}"
-        echo -e "${GREEN}  Please save this password!${NC}"
-        echo -e "${GREEN}═══════════════════════════════════════════${NC}"
-        echo ""
-    else
+    # Let the server generate config on first run
+    # The server will create vstats-config.json with proper bcrypt hash
+    if [ -f "$INSTALL_DIR/data/vstats-config.json" ]; then
         success "Existing configuration preserved"
+    else
+        info "Configuration will be generated on first server start"
     fi
 }
 
@@ -354,7 +370,15 @@ print_complete() {
     echo ""
     echo -e "  ${CYAN}Version:${NC}        $LATEST_VERSION"
     echo -e "  ${CYAN}Dashboard URL:${NC}  http://$LOCAL_IP:$DEFAULT_PORT"
-    echo -e "  ${CYAN}Password:${NC}       admin (or generated password above)"
+    echo ""
+    echo -e "  ${YELLOW}⚠️  Get your admin password:${NC}"
+    if [ "$OS" = "darwin" ]; then
+        echo -e "    ${WHITE}tail -20 $INSTALL_DIR/data/vstats.log | grep -i password${NC}"
+    else
+        echo -e "    ${WHITE}journalctl -u $SERVICE_NAME | grep -i password${NC}"
+    fi
+    echo -e "  ${YELLOW}Or reset it:${NC}"
+    echo -e "    ${WHITE}$INSTALL_DIR/vstats-server --reset-password${NC}"
     echo ""
     echo -e "  ${YELLOW}To add a server to monitor, run this on the target server:${NC}"
     echo ""

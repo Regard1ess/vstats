@@ -63,6 +63,17 @@ func reloadConfig(state *AppState) {
 	fmt.Println("✅ Config reloaded successfully - new password is now active")
 }
 
+// SignalError represents different types of signal errors
+type SignalError struct {
+	Type    string // "not_found", "permission_denied", "other"
+	Message string
+	PID     int
+}
+
+func (e *SignalError) Error() string {
+	return e.Message
+}
+
 // findAndSignalServer finds a running vstats-server process and sends SIGHUP
 func findAndSignalServer() error {
 	// Get current PID to exclude self
@@ -71,10 +82,16 @@ func findAndSignalServer() error {
 	// Read /proc to find vstats-server processes
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return fmt.Errorf("cannot read /proc: %w", err)
+		return &SignalError{
+			Type:    "other",
+			Message: fmt.Sprintf("cannot read /proc: %v", err),
+		}
 	}
 
+	foundPID := 0
+	permissionDenied := false
 	signaled := false
+
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -99,6 +116,8 @@ func findAndSignalServer() error {
 
 		// Check if this is vstats-server (not with --reset-password)
 		if containsCmdline(cmdline, "vstats-server") && !containsCmdline(cmdline, "--reset-password") {
+			foundPID = pid
+
 			// Found a running server, send SIGHUP
 			proc, err := os.FindProcess(pid)
 			if err != nil {
@@ -106,6 +125,11 @@ func findAndSignalServer() error {
 			}
 
 			if err := proc.Signal(syscall.SIGHUP); err != nil {
+				// Check if it's a permission error
+				if os.IsPermission(err) || strings.Contains(err.Error(), "permission denied") || strings.Contains(err.Error(), "operation not permitted") {
+					permissionDenied = true
+					continue
+				}
 				fmt.Printf("⚠️  Failed to signal process %d: %v\n", pid, err)
 				continue
 			}
@@ -115,11 +139,30 @@ func findAndSignalServer() error {
 		}
 	}
 
-	if !signaled {
-		return fmt.Errorf("no running vstats-server found")
+	if signaled {
+		return nil
 	}
 
-	return nil
+	if foundPID > 0 && permissionDenied {
+		return &SignalError{
+			Type:    "permission_denied",
+			Message: fmt.Sprintf("permission denied when signaling process %d", foundPID),
+			PID:     foundPID,
+		}
+	}
+
+	if foundPID == 0 {
+		return &SignalError{
+			Type:    "not_found",
+			Message: "no running vstats-server found",
+		}
+	}
+
+	return &SignalError{
+		Type:    "other",
+		Message: "failed to signal server",
+		PID:     foundPID,
+	}
 }
 
 // containsCmdline checks if cmdline contains the substring

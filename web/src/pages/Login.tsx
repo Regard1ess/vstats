@@ -220,7 +220,7 @@ export default function Login() {
 
         {/* Help text */}
         <p className="text-center text-slate-500 text-xs">
-          {t('login.forgotPassword')} <code className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">./vstats-server --reset-password</code>
+          {t('login.forgotPassword')} <code className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">sudo /opt/vstats/vstats-server --reset-password</code>
         </p>
       </div>
     </div>

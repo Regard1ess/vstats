@@ -24,8 +24,12 @@ NC='\033[0m'
 INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/vstats-agent"
 SERVICE_NAME="vstats-agent"
+VSTATS_API="https://vstats.zsoft.cc"
+VSTATS_DOWNLOAD="${VSTATS_API}/download"
+# Fallback to GitHub
 GITHUB_REPO="zsai001/vstats"
 GITHUB_API="https://api.github.com/repos/${GITHUB_REPO}/releases/latest"
+GITHUB_DOWNLOAD="https://github.com/${GITHUB_REPO}/releases/download"
 
 # Print banner
 print_banner() {
@@ -136,18 +140,30 @@ detect_system() {
     info "Detected: $OS-$ARCH"
 }
 
-# Get latest version from GitHub
+# Get latest version (try vstats.zsoft.cc first, then GitHub)
 get_latest_version() {
     info "Fetching latest version..."
     
+    # Try vstats.zsoft.cc first (faster, cached)
     if command -v curl &> /dev/null; then
-        LATEST_VERSION=$(curl -fsSL "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        LATEST_VERSION=$(curl -fsSL "${VSTATS_API}/api/release/version" 2>/dev/null)
     elif command -v wget &> /dev/null; then
-        LATEST_VERSION=$(wget -qO- "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        LATEST_VERSION=$(wget -qO- "${VSTATS_API}/api/release/version" 2>/dev/null)
+    fi
+    
+    # Fallback to GitHub if vstats.zsoft.cc failed
+    if [ -z "$LATEST_VERSION" ]; then
+        warn "Falling back to GitHub API..."
+        if command -v curl &> /dev/null; then
+            LATEST_VERSION=$(curl -fsSL "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        elif command -v wget &> /dev/null; then
+            LATEST_VERSION=$(wget -qO- "$GITHUB_API" 2>/dev/null | grep '"tag_name"' | head -1 | cut -d'"' -f4)
+        fi
+        USE_GITHUB_DOWNLOAD=true
     fi
     
     if [ -z "$LATEST_VERSION" ]; then
-        error "Could not fetch latest version from GitHub. This may be due to rate limiting. Please try again later or check your network connection."
+        error "Could not fetch latest version. Please check your network connection."
     fi
     
     success "Latest version: $LATEST_VERSION"
@@ -157,7 +173,12 @@ get_latest_version() {
 download_binary() {
     info "Downloading vstats-agent $LATEST_VERSION..."
     
-    DOWNLOAD_URL="https://github.com/${GITHUB_REPO}/releases/download/${LATEST_VERSION}/${BINARY_NAME}"
+    # Use vstats.zsoft.cc if available, fallback to GitHub
+    if [ "$USE_GITHUB_DOWNLOAD" = true ]; then
+        DOWNLOAD_URL="${GITHUB_DOWNLOAD}/${LATEST_VERSION}/${BINARY_NAME}"
+    else
+        DOWNLOAD_URL="${VSTATS_DOWNLOAD}/latest/${BINARY_NAME}"
+    fi
     
     info "URL: $DOWNLOAD_URL"
     
