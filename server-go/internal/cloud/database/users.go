@@ -69,6 +69,182 @@ func UpdateUserLastLogin(ctx context.Context, userID string) error {
 }
 
 // ============================================================================
+// Admin User Management Operations
+// ============================================================================
+
+// UserWithStats represents a user with additional statistics
+type UserWithStats struct {
+	models.User
+	ServerCount   int    `json:"server_count"`
+	OAuthProvider string `json:"oauth_provider,omitempty"`
+}
+
+// ListAllUsers retrieves all users with pagination (admin only)
+func ListAllUsers(ctx context.Context, limit, offset int, search string) ([]UserWithStats, int, error) {
+	// Count total users
+	var total int
+	countQuery := `SELECT COUNT(*) FROM users WHERE status != 'deleted'`
+	var countArgs []interface{}
+
+	if search != "" {
+		countQuery += ` AND (username ILIKE $1 OR email ILIKE $1)`
+		countArgs = append(countArgs, "%"+search+"%")
+	}
+
+	err := pool.QueryRow(ctx, countQuery, countArgs...).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Get users with server count
+	var query string
+	var args []interface{}
+
+	if search != "" {
+		query = `
+			SELECT 
+				u.id, u.username, u.email, u.email_verified, u.avatar_url, 
+				u.plan, u.server_limit, u.status, u.metadata, 
+				u.created_at, u.updated_at, u.last_login_at,
+				COALESCE((SELECT COUNT(*) FROM servers s WHERE s.user_id = u.id AND s.deleted_at IS NULL), 0) as server_count,
+				COALESCE((SELECT provider FROM oauth_providers op WHERE op.user_id = u.id LIMIT 1), '') as oauth_provider
+			FROM users u
+			WHERE u.status != 'deleted' AND (u.username ILIKE $1 OR u.email ILIKE $1)
+			ORDER BY u.created_at DESC LIMIT $2 OFFSET $3
+		`
+		args = []interface{}{"%" + search + "%", limit, offset}
+	} else {
+		query = `
+			SELECT 
+				u.id, u.username, u.email, u.email_verified, u.avatar_url, 
+				u.plan, u.server_limit, u.status, u.metadata, 
+				u.created_at, u.updated_at, u.last_login_at,
+				COALESCE((SELECT COUNT(*) FROM servers s WHERE s.user_id = u.id AND s.deleted_at IS NULL), 0) as server_count,
+				COALESCE((SELECT provider FROM oauth_providers op WHERE op.user_id = u.id LIMIT 1), '') as oauth_provider
+			FROM users u
+			WHERE u.status != 'deleted'
+			ORDER BY u.created_at DESC LIMIT $1 OFFSET $2
+		`
+		args = []interface{}{limit, offset}
+	}
+
+	rows, err := pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var users []UserWithStats
+	for rows.Next() {
+		var u UserWithStats
+		err := rows.Scan(
+			&u.ID, &u.Username, &u.Email, &u.EmailVerified, &u.AvatarURL,
+			&u.Plan, &u.ServerLimit, &u.Status, &u.Metadata,
+			&u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
+			&u.ServerCount, &u.OAuthProvider,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+		users = append(users, u)
+	}
+
+	return users, total, nil
+}
+
+// UpdateUserPlan updates a user's plan (admin only)
+func UpdateUserPlan(ctx context.Context, userID, plan string) error {
+	serverLimit := models.GetServerLimit(plan)
+	_, err := pool.Exec(ctx, `
+		UPDATE users SET plan = $1, server_limit = $2, updated_at = $3 WHERE id = $4
+	`, plan, serverLimit, time.Now(), userID)
+	return err
+}
+
+// UpdateUserStatus updates a user's status (admin only)
+func UpdateUserStatus(ctx context.Context, userID, status string) error {
+	_, err := pool.Exec(ctx, `
+		UPDATE users SET status = $1, updated_at = $2 WHERE id = $3
+	`, status, time.Now(), userID)
+	return err
+}
+
+// DeleteUser soft-deletes a user (admin only)
+func DeleteUser(ctx context.Context, userID string) error {
+	_, err := pool.Exec(ctx, `
+		UPDATE users SET status = 'deleted', updated_at = $1 WHERE id = $2
+	`, time.Now(), userID)
+	return err
+}
+
+// GetUserStats returns overall user statistics (admin only)
+func GetUserStats(ctx context.Context) (map[string]interface{}, error) {
+	stats := make(map[string]interface{})
+
+	// Total users
+	var totalUsers, activeUsers, suspendedUsers int
+	err := pool.QueryRow(ctx, `
+		SELECT 
+			COUNT(*) FILTER (WHERE status != 'deleted'),
+			COUNT(*) FILTER (WHERE status = 'active'),
+			COUNT(*) FILTER (WHERE status = 'suspended')
+		FROM users
+	`).Scan(&totalUsers, &activeUsers, &suspendedUsers)
+	if err != nil {
+		return nil, err
+	}
+
+	stats["total_users"] = totalUsers
+	stats["active_users"] = activeUsers
+	stats["suspended_users"] = suspendedUsers
+
+	// Users by plan
+	var freeUsers, proUsers, enterpriseUsers int
+	err = pool.QueryRow(ctx, `
+		SELECT 
+			COUNT(*) FILTER (WHERE plan = 'free' AND status = 'active'),
+			COUNT(*) FILTER (WHERE plan = 'pro' AND status = 'active'),
+			COUNT(*) FILTER (WHERE plan = 'enterprise' AND status = 'active')
+		FROM users
+	`).Scan(&freeUsers, &proUsers, &enterpriseUsers)
+	if err != nil {
+		return nil, err
+	}
+
+	stats["free_users"] = freeUsers
+	stats["pro_users"] = proUsers
+	stats["enterprise_users"] = enterpriseUsers
+
+	// New users today
+	var newToday int
+	err = pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM users 
+		WHERE created_at::DATE = CURRENT_DATE AND status != 'deleted'
+	`).Scan(&newToday)
+	if err != nil {
+		return nil, err
+	}
+	stats["new_today"] = newToday
+
+	// Total servers
+	var totalServers, onlineServers int
+	err = pool.QueryRow(ctx, `
+		SELECT 
+			COUNT(*) FILTER (WHERE deleted_at IS NULL),
+			COUNT(*) FILTER (WHERE status = 'online' AND deleted_at IS NULL)
+		FROM servers
+	`).Scan(&totalServers, &onlineServers)
+	if err != nil {
+		return nil, err
+	}
+
+	stats["total_servers"] = totalServers
+	stats["online_servers"] = onlineServers
+
+	return stats, nil
+}
+
+// ============================================================================
 // OAuth Provider Operations
 // ============================================================================
 

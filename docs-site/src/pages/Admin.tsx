@@ -4,12 +4,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LayoutDashboard, Users, Activity, Settings, Shield, Send, 
   ChevronDown, ChevronUp, ChevronLeft, MapPin, TrendingUp, 
-  BarChart3, RefreshCw, Globe, Calendar, ArrowUpRight, Sparkles
+  BarChart3, RefreshCw, Globe, Calendar, ArrowUpRight, Sparkles,
+  Search, UserCog, Trash2, Crown, X, Server, UserCheck, UserX
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
 import * as api from '../api/cloud';
-import type { AuthOverallStats, AuthDailyStats, AuthSiteStats, AuthReport } from '../api/cloud';
+import type { AuthOverallStats, AuthDailyStats, AuthSiteStats, AuthReport, AdminUser, UserStats } from '../api/cloud';
 
 // GitHub Icon SVG
 const GitHubIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
@@ -56,6 +57,18 @@ export default function AdminPage() {
   const [isSending, setIsSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // User management
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [userPage, setUserPage] = useState(1);
+  const [userTotalPages, setUserTotalPages] = useState(1);
+  const [userTotal, setUserTotal] = useState(0);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [deleteConfirmUser, setDeleteConfirmUser] = useState<AdminUser | null>(null);
+
   // Redirect if not admin
   useEffect(() => {
     if (!authLoading && (!user || !isUserAdmin)) {
@@ -76,6 +89,25 @@ export default function AdminPage() {
       fetchAuthStats();
     }
   }, [user, isUserAdmin, activeTab]);
+
+  // Fetch users
+  useEffect(() => {
+    if (user && isUserAdmin && activeTab === 'users') {
+      fetchUsers();
+      fetchUserStats();
+    }
+  }, [user, isUserAdmin, activeTab, userPage]);
+
+  // Debounced search for users
+  useEffect(() => {
+    if (activeTab === 'users') {
+      const timer = setTimeout(() => {
+        setUserPage(1);
+        fetchUsers();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [userSearch]);
 
   const fetchDashboardData = async () => {
     setDashboardLoading(true);

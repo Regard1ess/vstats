@@ -247,6 +247,18 @@ jobs:
             else
               echo "⚠️  API health check failed"
             fi
+            
+            # 运行数据库迁移（如果有新的表结构）
+            echo ""
+            echo "======================================"
+            echo "Running Database Migrations:"
+            echo "======================================"
+            if [ -f "$DEPLOY_DIR/db/schema.sql" ]; then
+              sudo docker compose exec -T postgres psql -U vstats -d vstats_cloud -f - < "$DEPLOY_DIR/db/schema.sql" 2>&1 || true
+              echo "✅ Database migrations applied"
+            else
+              echo "⚠️  No schema.sql found, skipping migrations"
+            fi
 
       - name: Deployment Summary
         run: |

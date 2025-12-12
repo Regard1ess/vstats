@@ -140,6 +140,13 @@ func main() {
 		auth.GET("/admin/auth-stats/sites", handlers.GetAuthSiteStats)
 		auth.GET("/admin/auth-stats/sites/:site_host", handlers.GetAuthUsersBySite)
 		auth.GET("/admin/auth-stats/date/:date", handlers.GetAuthUsersByDate)
+
+		// User Management (admin endpoints)
+		auth.GET("/admin/users", handlers.ListUsers)
+		auth.GET("/admin/users/stats", handlers.GetUserStats)
+		auth.GET("/admin/users/:id", handlers.GetUser)
+		auth.PUT("/admin/users/:id", handlers.UpdateUser)
+		auth.DELETE("/admin/users/:id", handlers.DeleteUser)
 	}
 
 	// ============================================================================

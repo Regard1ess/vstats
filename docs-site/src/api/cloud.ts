@@ -237,6 +237,73 @@ export async function getAuthUsersByDate(date: string, limit: number = 100): Pro
 }
 
 // ============================================================================
+// User Management API (Admin)
+// ============================================================================
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email?: string;
+  email_verified: boolean;
+  avatar_url?: string;
+  plan: string;
+  server_limit: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  last_login_at?: string;
+  server_count: number;
+  oauth_provider?: string;
+}
+
+export interface UserListResponse {
+  users: AdminUser[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface UserStats {
+  total_users: number;
+  active_users: number;
+  suspended_users: number;
+  free_users: number;
+  pro_users: number;
+  enterprise_users: number;
+  new_today: number;
+  total_servers: number;
+  online_servers: number;
+}
+
+export async function listUsers(page: number = 1, pageSize: number = 20, search?: string): Promise<UserListResponse> {
+  let url = `/admin/users?page=${page}&page_size=${pageSize}`;
+  if (search) {
+    url += `&search=${encodeURIComponent(search)}`;
+  }
+  return request(url);
+}
+
+export async function getUserStats(): Promise<UserStats> {
+  return request('/admin/users/stats');
+}
+
+export async function getUser(id: string): Promise<{ user: AdminUser }> {
+  return request(`/admin/users/${id}`);
+}
+
+export async function updateUser(id: string, data: { plan?: string; status?: string }): Promise<{ user: AdminUser; message: string }> {
+  return request(`/admin/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteUser(id: string): Promise<{ message: string }> {
+  return request(`/admin/users/${id}`, { method: 'DELETE' });
+}
+
+// ============================================================================
 // WebSocket
 // ============================================================================
 

@@ -24,6 +24,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type',
 };
 
+// Report URL for OAuth statistics
+const REPORT_URL = 'https://vstats.zsoft.cc/api/auth/report';
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -245,6 +248,10 @@ async function handleGitHubCallback(url: URL, env: Env): Promise<Response> {
     }
   }
 
+  // Report auth event to vstats (fire and forget)
+  const siteUrl = new URL(stateData.redirect_uri).origin;
+  reportAuthEvent(siteUrl, 'github', userData.login);
+
   // Redirect back to the original instance with user info
   const callbackUrl = new URL(stateData.redirect_uri);
   callbackUrl.searchParams.set('state', stateData.original_state);
@@ -368,6 +375,10 @@ async function handleGoogleCallback(url: URL, env: Env): Promise<Response> {
     return redirectWithError(proxyState, 'Failed to get user info');
   }
 
+  // Report auth event to vstats (fire and forget)
+  const siteUrl = new URL(stateData.redirect_uri).origin;
+  reportAuthEvent(siteUrl, 'google', userData.email);
+
   // Redirect back to the original instance with user info
   const callbackUrl = new URL(stateData.redirect_uri);
   callbackUrl.searchParams.set('state', stateData.original_state);
@@ -380,6 +391,27 @@ async function handleGoogleCallback(url: URL, env: Env): Promise<Response> {
 // ============================================================================
 // Helpers
 // ============================================================================
+
+// Report auth event to vstats
+async function reportAuthEvent(siteUrl: string, provider: string, username: string): Promise<void> {
+  try {
+    await fetch(REPORT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'vStats-OAuth-Proxy',
+      },
+      body: JSON.stringify({
+        site_url: siteUrl,
+        provider: provider,
+        username: username,
+      }),
+    });
+  } catch (e) {
+    // Ignore report errors - don't block the OAuth flow
+    console.warn('Failed to report auth event:', e);
+  }
+}
 
 function redirectWithError(proxyState: string | null, errorMessage: string): Response {
   if (!proxyState) {

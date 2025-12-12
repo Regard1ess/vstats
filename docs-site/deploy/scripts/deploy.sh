@@ -31,6 +31,7 @@ usage() {
     echo "  update        - Pull latest images and restart"
     echo "  setup         - Initial setup (create .env)"
     echo "  health        - Run health check for all services"
+    echo "  migrate       - Run database migrations"
     echo ""
     exit 1
 }
@@ -160,6 +161,31 @@ health() {
     echo_info "All services are healthy"
 }
 
+migrate() {
+    echo_info "Running database migrations..."
+    
+    # 检查 postgres 是否运行
+    if ! docker compose ps postgres 2>/dev/null | grep -qE "running|Up|healthy"; then
+        echo_error "PostgreSQL is not running. Start services first: $0 start"
+        exit 1
+    fi
+    
+    # 检查 schema.sql 是否存在
+    if [ ! -f db/schema.sql ]; then
+        echo_error "db/schema.sql not found"
+        exit 1
+    fi
+    
+    echo_info "Applying schema.sql to database..."
+    
+    # 执行 SQL 迁移（使用 ON CONFLICT DO NOTHING 避免重复创建错误）
+    docker compose exec -T postgres psql -U vstats -d vstats_cloud -f - < db/schema.sql 2>&1 || true
+    
+    echo ""
+    echo_info "Database migration completed!"
+    echo_info "Note: Some 'already exists' errors are normal for existing tables."
+}
+
 # 主逻辑
 check_prerequisites
 
@@ -172,5 +198,6 @@ case "${1:-}" in
     update)   update ;;
     setup)    setup ;;
     health)   health ;;
+    migrate)  migrate ;;
     *)        usage ;;
 esac
