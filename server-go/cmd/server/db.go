@@ -184,9 +184,8 @@ func InitDatabase() (*sql.DB, error) {
 			UNIQUE(server_id, date)
 		);
 		
-		-- Create indexes
+		-- Create indexes (bucket_5min index created after migration)
 		CREATE INDEX IF NOT EXISTS idx_metrics_raw_server_time ON metrics_raw(server_id, timestamp);
-		CREATE INDEX IF NOT EXISTS idx_metrics_raw_server_bucket ON metrics_raw(server_id, bucket_5min);
 		CREATE INDEX IF NOT EXISTS idx_metrics_hourly_server_time ON metrics_hourly(server_id, hour_start);
 		CREATE INDEX IF NOT EXISTS idx_metrics_daily_server_time ON metrics_daily(server_id, date);
 		
@@ -205,7 +204,6 @@ func InitDatabase() (*sql.DB, error) {
 		
 		CREATE INDEX IF NOT EXISTS idx_ping_raw_server_time ON ping_raw(server_id, timestamp);
 		CREATE INDEX IF NOT EXISTS idx_ping_raw_target ON ping_raw(server_id, target_name, timestamp);
-		CREATE INDEX IF NOT EXISTS idx_ping_raw_server_bucket ON ping_raw(server_id, bucket_5min);
 	`)
 	if err != nil {
 		return nil, err
