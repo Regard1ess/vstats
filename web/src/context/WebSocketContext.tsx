@@ -61,9 +61,8 @@ interface StreamServerMessage {
   server: ServerMetricsUpdate;
 }
 
-interface StreamEndMessage {
-  type: 'stream_end';
-}
+// StreamEndMessage is handled by type check only (no additional fields needed)
+// type: 'stream_end'
 
 interface DeltaMessage {
   type: 'delta';
