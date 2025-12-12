@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, Moon, Sun, ChevronDown, Monitor, Terminal, Cloud as CloudIcon, Globe, LogOut } from 'lucide-react';
+import { Menu, Moon, Sun, ChevronDown, Monitor, Terminal, Cloud as CloudIcon, Globe, LogOut, Shield } from 'lucide-react';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/AuthContext';
@@ -37,7 +37,7 @@ export default function Navbar() {
   const [isProductMenuOpen, setIsProductMenuOpen] = useState(false);
   const [isLangMenuOpen, setIsLangMenuOpen] = useState(false);
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, isUserAdmin } = useAuth();
   const navigate = useNavigate();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -256,6 +256,16 @@ export default function Navbar() {
                             <CloudIcon className="w-4 h-4" />
                             {t('navbar.products.vStatsCloud', 'vStats Cloud')}
                           </Link>
+                          {isUserAdmin && (
+                            <Link
+                              to="/admin"
+                              onClick={() => setIsUserMenuOpen(false)}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                            >
+                              <Shield className="w-4 h-4" />
+                              {t('navbar.admin', 'Admin Panel')}
+                            </Link>
+                          )}
                           <button
                             onClick={() => {
                               logout();
