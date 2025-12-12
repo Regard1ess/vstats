@@ -154,6 +154,51 @@ export default function AdminPage() {
     }
   };
 
+  const fetchUsers = async () => {
+    setUsersLoading(true);
+    try {
+      const response = await api.listUsers(userPage, 20, userSearch);
+      setUsers(response.users || []);
+      setUserTotal(response.total);
+      setUserTotalPages(response.total_pages);
+    } catch (err) {
+      console.error('Failed to fetch users:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const fetchUserStats = async () => {
+    try {
+      const stats = await api.getUserStats();
+      setUserStats(stats);
+    } catch (err) {
+      console.error('Failed to fetch user stats:', err);
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, data: { plan?: string; status?: string }) => {
+    try {
+      await api.updateUser(userId, data);
+      fetchUsers();
+      fetchUserStats();
+      setEditingUser(null);
+    } catch (err) {
+      console.error('Failed to update user:', err);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await api.deleteUser(userId);
+      fetchUsers();
+      fetchUserStats();
+      setDeleteConfirmUser(null);
+    } catch (err) {
+      console.error('Failed to delete user:', err);
+    }
+  };
+
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!emailSubject.trim() || !emailContent.trim()) return;
@@ -710,22 +755,340 @@ export default function AdminPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-6"
               >
+                {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white">User Management</h1>
                     <p className="text-slate-500 dark:text-slate-400">Manage platform users and permissions</p>
                   </div>
+                  <button
+                    onClick={() => { fetchUsers(); fetchUserStats(); }}
+                    disabled={usersLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${usersLoading ? 'animate-spin' : ''}`} />
+                    <span>Refresh</span>
+                  </button>
                 </div>
 
-                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-8 text-center">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <Users className="w-8 h-8 text-slate-400" />
+                {/* User Stats Cards */}
+                {userStats && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Users className="w-4 h-4 text-blue-500" />
+                        <span className="text-xs text-slate-500">Total Users</span>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{userStats.total_users}</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <UserCheck className="w-4 h-4 text-emerald-500" />
+                        <span className="text-xs text-slate-500">Active</span>
+                      </div>
+                      <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{userStats.active_users}</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <UserX className="w-4 h-4 text-red-500" />
+                        <span className="text-xs text-slate-500">Suspended</span>
+                      </div>
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-400">{userStats.suspended_users}</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Crown className="w-4 h-4 text-violet-500" />
+                        <span className="text-xs text-slate-500">Pro Users</span>
+                      </div>
+                      <div className="text-2xl font-bold text-violet-600 dark:text-violet-400">{userStats.pro_users}</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-4 h-4 text-slate-500" />
+                        <span className="text-xs text-slate-500">Servers</span>
+                      </div>
+                      <div className="text-2xl font-bold text-slate-900 dark:text-white">{userStats.total_servers}</div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-4 h-4 text-amber-500" />
+                        <span className="text-xs text-slate-500">New Today</span>
+                      </div>
+                      <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">{userStats.new_today}</div>
+                    </div>
                   </div>
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Coming Soon</h3>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-                    User management features are under development. You'll soon be able to view, manage, and moderate platform users.
-                  </p>
+                )}
+
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search users by username or email..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all text-slate-900 dark:text-white"
+                  />
                 </div>
+
+                {/* Users Table */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-50 dark:bg-slate-900/50">
+                        <tr className="text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          <th className="px-5 py-3">User</th>
+                          <th className="px-5 py-3">Provider</th>
+                          <th className="px-5 py-3 text-center">Plan</th>
+                          <th className="px-5 py-3 text-center">Servers</th>
+                          <th className="px-5 py-3 text-center">Status</th>
+                          <th className="px-5 py-3">Last Login</th>
+                          <th className="px-5 py-3 text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+                        {usersLoading ? (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-12 text-center">
+                              <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto" />
+                            </td>
+                          </tr>
+                        ) : users.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-12 text-center text-slate-500">
+                              No users found
+                            </td>
+                          </tr>
+                        ) : (
+                          users.map((u) => (
+                            <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white font-medium text-sm">
+                                    {u.avatar_url ? (
+                                      <img src={u.avatar_url} alt={u.username} className="w-10 h-10 rounded-full" />
+                                    ) : (
+                                      u.username.charAt(0).toUpperCase()
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="font-medium text-slate-900 dark:text-white">{u.username}</div>
+                                    <div className="text-xs text-slate-500">{u.email || 'No email'}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center gap-2">
+                                  {u.oauth_provider === 'github' ? (
+                                    <GitHubIcon className="w-4 h-4" />
+                                  ) : u.oauth_provider === 'google' ? (
+                                    <GoogleIcon className="w-4 h-4" />
+                                  ) : null}
+                                  <span className="text-sm text-slate-600 dark:text-slate-400 capitalize">{u.oauth_provider || '-'}</span>
+                                </div>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                                  u.plan === 'enterprise' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' :
+                                  u.plan === 'pro' ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400' :
+                                  'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                }`}>
+                                  {u.plan}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className="text-slate-600 dark:text-slate-400">{u.server_count}/{u.server_limit}</span>
+                              </td>
+                              <td className="px-5 py-4 text-center">
+                                <span className={`px-2 py-1 rounded-lg text-xs font-medium ${
+                                  u.status === 'active' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
+                                  u.status === 'suspended' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' :
+                                  'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                }`}>
+                                  {u.status}
+                                </span>
+                              </td>
+                              <td className="px-5 py-4 text-sm text-slate-500">
+                                {u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : 'Never'}
+                              </td>
+                              <td className="px-5 py-4">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    onClick={() => setEditingUser(u)}
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-500 hover:text-violet-600"
+                                    title="Edit user"
+                                  >
+                                    <UserCog className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => setDeleteConfirmUser(u)}
+                                    className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-500 hover:text-red-600"
+                                    title="Delete user"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  {userTotalPages > 1 && (
+                    <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                      <div className="text-sm text-slate-500">
+                        Showing {((userPage - 1) * 20) + 1} to {Math.min(userPage * 20, userTotal)} of {userTotal} users
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                          disabled={userPage === 1}
+                          className="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-sm text-slate-600 dark:text-slate-400">
+                          Page {userPage} of {userTotalPages}
+                        </span>
+                        <button
+                          onClick={() => setUserPage(p => Math.min(userTotalPages, p + 1))}
+                          disabled={userPage === userTotalPages}
+                          className="px-3 py-1.5 text-sm bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Edit User Modal */}
+                <AnimatePresence>
+                  {editingUser && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                      onClick={() => setEditingUser(null)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                          <h3 className="font-semibold text-slate-900 dark:text-white">Edit User</h3>
+                          <button
+                            onClick={() => setEditingUser(null)}
+                            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                          >
+                            <X className="w-5 h-5 text-slate-400" />
+                          </button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                          <div className="flex items-center gap-4 mb-6">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-xl font-medium">
+                              {editingUser.avatar_url ? (
+                                <img src={editingUser.avatar_url} alt={editingUser.username} className="w-16 h-16 rounded-full" />
+                              ) : (
+                                editingUser.username.charAt(0).toUpperCase()
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-lg font-semibold text-slate-900 dark:text-white">{editingUser.username}</div>
+                              <div className="text-sm text-slate-500">{editingUser.email || 'No email'}</div>
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Plan</label>
+                            <select
+                              defaultValue={editingUser.plan}
+                              onChange={(e) => handleUpdateUser(editingUser.id, { plan: e.target.value })}
+                              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all text-slate-900 dark:text-white"
+                            >
+                              <option value="free">Free (5 servers)</option>
+                              <option value="pro">Pro (50 servers)</option>
+                              <option value="enterprise">Enterprise (500 servers)</option>
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Status</label>
+                            <select
+                              defaultValue={editingUser.status}
+                              onChange={(e) => handleUpdateUser(editingUser.id, { status: e.target.value })}
+                              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all text-slate-900 dark:text-white"
+                            >
+                              <option value="active">Active</option>
+                              <option value="suspended">Suspended</option>
+                            </select>
+                          </div>
+
+                          <div className="pt-4">
+                            <button
+                              onClick={() => setEditingUser(null)}
+                              className="w-full px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
+                            >
+                              Close
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Delete Confirmation Modal */}
+                <AnimatePresence>
+                  {deleteConfirmUser && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                      onClick={() => setDeleteConfirmUser(null)}
+                    >
+                      <motion.div
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="p-6 text-center">
+                          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Trash2 className="w-8 h-8 text-red-600 dark:text-red-400" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">Delete User</h3>
+                          <p className="text-slate-500 dark:text-slate-400 mb-6">
+                            Are you sure you want to delete <span className="font-medium text-slate-900 dark:text-white">{deleteConfirmUser.username}</span>? This action cannot be undone.
+                          </p>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setDeleteConfirmUser(null)}
+                              className="flex-1 px-4 py-2.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(deleteConfirmUser.id)}
+                              className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors font-medium"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </motion.div>
             )}
 
