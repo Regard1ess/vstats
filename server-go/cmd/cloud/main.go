@@ -199,7 +199,7 @@ func main() {
 	}
 	fmt.Println()
 
-	if err := r.Run(":" + cfg.Port); err != nil {
+	if err := r.Run("0.0.0.0:" + cfg.Port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
 }

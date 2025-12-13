@@ -284,7 +284,7 @@ func main() {
 	fmt.Printf("📡 Agent WebSocket: ws://0.0.0.0:%s/ws/agent\n", port)
 	fmt.Printf("🔑 Reset password: sudo /opt/vstats/vstats-server --reset-password\n")
 
-	if err := r.Run(":" + port); err != nil {
+	if err := r.Run("0.0.0.0:" + port); err != nil {
 		fmt.Printf("Failed to start server: %v\n", err)
 		os.Exit(1)
 	}
