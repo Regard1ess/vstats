@@ -150,54 +150,71 @@ function HistoryChart({ serverId }: { serverId: string }) {
     }
   }, [range, loadedData.range]);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      // Determine what to fetch based on current tab and what's already loaded
-      const shouldFetchPing = needsPingData && !loadedData.ping && loadedData.range === range;
-      const shouldFetchMetrics = needsMetricsData && !loadedData.metrics && loadedData.range === range;
-      
-      // Skip if we already have the data we need
-      if (!shouldFetchPing && !shouldFetchMetrics && loadedData.range === range) {
-        return;
-      }
-
-      // Determine the type parameter
-      let dataType = 'all';
-      if (shouldFetchPing && !shouldFetchMetrics) {
-        dataType = 'ping';
-      } else if (shouldFetchMetrics && !shouldFetchPing) {
-        dataType = 'metrics';
-      }
-
-      if (isInitialLoad || (shouldFetchPing || shouldFetchMetrics)) {
-        setIsFetching(true);
-      }
-      setError(null);
-      
-      try {
-        const res = await fetch(`/api/history/${serverId}?range=${range}&type=${dataType}`);
-        if (!res.ok) throw new Error('Failed to fetch history');
-        const json: HistoryResponse = await res.json();
-        
-        // Update data based on what was fetched
-        if (dataType === 'ping' || dataType === 'all') {
-          setPingTargets(json.ping_targets || []);
-          setLoadedData(prev => ({ ...prev, ping: true }));
-        }
-        if (dataType === 'metrics' || dataType === 'all') {
-          setData(json.data || []);
-          setLoadedData(prev => ({ ...prev, metrics: true }));
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Unknown error');
-      } finally {
-        setIsFetching(false);
-        setIsInitialLoad(false);
-      }
-    };
+  // Fetch history data function
+  const fetchHistory = async (isRefresh = false) => {
+    // Determine what to fetch based on current tab and what's already loaded
+    const shouldFetchPing = needsPingData && (!loadedData.ping || isRefresh) && loadedData.range === range;
+    const shouldFetchMetrics = needsMetricsData && (!loadedData.metrics || isRefresh) && loadedData.range === range;
     
-    fetchHistory();
-  }, [serverId, range, tab, needsPingData, needsMetricsData, loadedData, isInitialLoad]);
+    // Skip if we already have the data we need (and not a refresh)
+    if (!shouldFetchPing && !shouldFetchMetrics && loadedData.range === range && !isRefresh) {
+      return;
+    }
+
+    // Determine the type parameter
+    let dataType = 'all';
+    if (shouldFetchPing && !shouldFetchMetrics) {
+      dataType = 'ping';
+    } else if (shouldFetchMetrics && !shouldFetchPing) {
+      dataType = 'metrics';
+    }
+
+    // Only show loading spinner on initial load, not on refresh
+    if (isInitialLoad || (!isRefresh && (shouldFetchPing || shouldFetchMetrics))) {
+      setIsFetching(true);
+    }
+    setError(null);
+    
+    try {
+      const res = await fetch(`/api/history/${serverId}?range=${range}&type=${dataType}`);
+      if (!res.ok) throw new Error('Failed to fetch history');
+      const json: HistoryResponse = await res.json();
+      
+      // Update data based on what was fetched
+      if (dataType === 'ping' || dataType === 'all') {
+        setPingTargets(json.ping_targets || []);
+        setLoadedData(prev => ({ ...prev, ping: true }));
+      }
+      if (dataType === 'metrics' || dataType === 'all') {
+        setData(json.data || []);
+        setLoadedData(prev => ({ ...prev, metrics: true }));
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unknown error');
+    } finally {
+      setIsFetching(false);
+      setIsInitialLoad(false);
+    }
+  };
+
+  // Initial fetch when dependencies change
+  useEffect(() => {
+    fetchHistory(false);
+  }, [serverId, range, tab, needsPingData, needsMetricsData, loadedData.range]);
+
+  // Auto-refresh interval based on range
+  // 1h: refresh every 30 seconds
+  // 24h: refresh every 2 minutes
+  // 7d+: refresh every 5 minutes
+  useEffect(() => {
+    const refreshInterval = range === '1h' ? 30 * 1000 : range === '24h' ? 2 * 60 * 1000 : 5 * 60 * 1000;
+    
+    const intervalId = setInterval(() => {
+      fetchHistory(true);
+    }, refreshInterval);
+    
+    return () => clearInterval(intervalId);
+  }, [serverId, range, tab, needsPingData, needsMetricsData]);
 
   const ranges: { value: TimeRange; label: string }[] = [
     { value: '1h', label: '1H' },
@@ -216,24 +233,65 @@ function HistoryChart({ serverId }: { serverId: string }) {
     { value: 'network', label: t('serverDetail.history.network'), color: 'cyan' },
   ];
 
-  // Expected interval between points based on range (in milliseconds)
-  const expectedInterval = useMemo(() => {
+  // Number of points for each time range on x-axis
+  const getGridConfig = useMemo(() => {
+    const now = Date.now();
     switch (range) {
-      case '1h': return 5 * 1000; // 5 seconds
-      case '24h': return 2 * 60 * 1000; // 2 minutes
-      case '7d': return 15 * 60 * 1000; // 15 minutes (672 points over 7 days from 15-min aggregates)
-      case '30d': return 60 * 60 * 1000; // 1 hour
-      case '1y': return 12 * 60 * 60 * 1000; // 12 hours
-      default: return 2 * 60 * 1000;
+      case '1h': 
+        return { 
+          points: 30, 
+          duration: 60 * 60 * 1000, // 1 hour in ms
+          interval: 60 * 60 * 1000 / 30, // 2 minutes per point
+          startTime: now - 60 * 60 * 1000
+        };
+      case '24h': 
+        return { 
+          points: 36, 
+          duration: 24 * 60 * 60 * 1000, // 24 hours in ms
+          interval: 24 * 60 * 60 * 1000 / 36, // 40 minutes per point
+          startTime: now - 24 * 60 * 60 * 1000
+        };
+      case '7d': 
+        return { 
+          points: 28, 
+          duration: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+          interval: 7 * 24 * 60 * 60 * 1000 / 28, // 6 hours per point
+          startTime: now - 7 * 24 * 60 * 60 * 1000
+        };
+      case '30d': 
+        return { 
+          points: 30, 
+          duration: 30 * 24 * 60 * 60 * 1000, // 30 days in ms
+          interval: 30 * 24 * 60 * 60 * 1000 / 30, // 1 day per point
+          startTime: now - 30 * 24 * 60 * 60 * 1000
+        };
+      case '1y': 
+        return { 
+          points: 36, 
+          duration: 365 * 24 * 60 * 60 * 1000, // 1 year in ms
+          interval: 365 * 24 * 60 * 60 * 1000 / 36, // ~10 days per point
+          startTime: now - 365 * 24 * 60 * 60 * 1000
+        };
+      default: 
+        return { 
+          points: 36, 
+          duration: 24 * 60 * 60 * 1000,
+          interval: 24 * 60 * 60 * 1000 / 36,
+          startTime: now - 24 * 60 * 60 * 1000
+        };
     }
   }, [range]);
 
-  // Process data and insert null points for gaps (to break line connections)
+  // Generate fixed time grid and merge with fetched data
+  // Left = old, Right = new (current time)
   const sampledData = useMemo(() => {
-    if (data.length === 0) return [];
+    const { points, interval, startTime } = getGridConfig;
+    const now = Date.now();
     
-    const result: Array<{
+    // Create time grid from startTime to now
+    const timeGrid: Array<{
       timestamp: string;
+      gridTime: number;
       cpu: number | null;
       memory: number | null;
       disk: number | null;
@@ -242,51 +300,99 @@ function HistoryChart({ serverId }: { serverId: string }) {
       ping_ms: number | null;
       index: number;
       formattedTime: string;
+      hasData: boolean;
     }> = [];
     
-    // Gap threshold: 3x expected interval means data is missing
-    const gapThreshold = expectedInterval * 3;
-    
-    for (let i = 0; i < data.length; i++) {
-      const point = data[i];
-      const currentTime = new Date(point.timestamp).getTime();
-      
-      // Check if there's a gap from previous point
-      if (i > 0) {
-        const prevTime = new Date(data[i - 1].timestamp).getTime();
-        const gap = currentTime - prevTime;
-        
-        if (gap > gapThreshold) {
-          // Insert a null point to break the line
-          result.push({
-            timestamp: new Date(prevTime + expectedInterval).toISOString(),
-            cpu: null,
-            memory: null,
-            disk: null,
-            net_rx: null,
-            net_tx: null,
-            ping_ms: null,
-            index: result.length,
-            formattedTime: '',
-          });
-        }
-      }
-      
-      result.push({
-        ...point,
-        cpu: point.cpu,
-        memory: point.memory,
-        disk: point.disk,
-        net_rx: point.net_rx,
-        net_tx: point.net_tx,
-        ping_ms: point.ping_ms ?? null,
-        index: result.length,
-        formattedTime: formatTimeForChart(point.timestamp),
+    for (let i = 0; i < points; i++) {
+      const gridTime = startTime + i * interval;
+      const timestamp = new Date(gridTime).toISOString();
+      timeGrid.push({
+        timestamp,
+        gridTime,
+        cpu: null,
+        memory: null,
+        disk: null,
+        net_rx: null,
+        net_tx: null,
+        ping_ms: null,
+        index: i,
+        formattedTime: formatTimeForChart(timestamp),
+        hasData: false,
       });
     }
     
-    return result;
-  }, [data, expectedInterval]);
+    // If no data fetched, return the empty grid with null values
+    if (data.length === 0) {
+      return timeGrid;
+    }
+    
+    // Find the earliest data point to know when data collection started
+    const sortedData = [...data].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    const earliestDataTime = new Date(sortedData[0].timestamp).getTime();
+    
+    // Merge fetched data into time grid
+    // For each grid point, find the closest data point within half the interval
+    const halfInterval = interval / 2;
+    
+    for (let i = 0; i < timeGrid.length; i++) {
+      const gridPoint = timeGrid[i];
+      const gridTime = gridPoint.gridTime;
+      
+      // If this grid point is before data collection started, leave as null (blank)
+      if (gridTime < earliestDataTime - halfInterval) {
+        continue;
+      }
+      
+      // If this grid point is in the future (beyond now), leave as null (blank)
+      if (gridTime > now + halfInterval) {
+        continue;
+      }
+      
+      // Find the closest data point to this grid time
+      let closestPoint: HistoryPoint | null = null;
+      let minDistance = Infinity;
+      
+      for (const dataPoint of data) {
+        const dataTime = new Date(dataPoint.timestamp).getTime();
+        const distance = Math.abs(dataTime - gridTime);
+        
+        if (distance < minDistance && distance <= halfInterval) {
+          minDistance = distance;
+          closestPoint = dataPoint;
+        }
+      }
+      
+      if (closestPoint) {
+        // Data exists for this time slot
+        timeGrid[i] = {
+          ...gridPoint,
+          cpu: closestPoint.cpu,
+          memory: closestPoint.memory,
+          disk: closestPoint.disk,
+          net_rx: closestPoint.net_rx,
+          net_tx: closestPoint.net_tx,
+          ping_ms: closestPoint.ping_ms ?? null,
+          hasData: true,
+        };
+      } else {
+        // No data for this time slot but within collection period - set to 0
+        timeGrid[i] = {
+          ...gridPoint,
+          cpu: 0,
+          memory: 0,
+          disk: 0,
+          net_rx: 0,
+          net_tx: 0,
+          ping_ms: 0,
+          hasData: true,
+        };
+      }
+    }
+    
+    return timeGrid;
+  }, [data, getGridConfig]);
 
   function formatTimeForChart(timestamp: string) {
     const date = new Date(timestamp);
@@ -298,14 +404,15 @@ function HistoryChart({ serverId }: { serverId: string }) {
         // 按小时: "14:00"
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       case '7d':
-        // 按天: "12/10" 或 "Dec 10"
-        return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
+        // 按天+时间: "12/10 14:00"
+        return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' }) + ' ' + 
+               date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       case '30d':
         // 按天: "12/10" 或 "Dec 10"
         return date.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
       case '1y':
-        // 按月: "Dec" 或 "12月"
-        return date.toLocaleDateString([], { month: 'short' });
+        // 按月+日: "Dec 10"
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
       default:
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
@@ -329,18 +436,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  // Calculate tick interval to show ~8-10 evenly spaced labels on X axis
+  // Calculate tick interval to show evenly spaced labels on X axis
+  // Show about 10-12 labels for better readability
   const xAxisInterval = useMemo(() => {
-    const validPoints = sampledData.filter(d => d.formattedTime !== '');
-    if (validPoints.length <= 10) return 0; // Show all labels if few points
-    return Math.floor(validPoints.length / 8); // ~8 labels across the chart
-  }, [sampledData]);
-
-  // Calculate interval for ping data (which may have different length)
-  const calcPingInterval = (dataLength: number) => {
-    if (dataLength <= 10) return 0;
-    return Math.floor(dataLength / 8);
-  };
+    const { points } = getGridConfig;
+    if (points <= 12) return 0; // Show all labels if few points
+    return Math.floor(points / 10) - 1; // ~10-12 labels across the chart
+  }, [getGridConfig]);
 
   // Single Line Chart Component (no animation, no fill)
   const SingleLineChart = ({ 
@@ -357,10 +459,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
     maxValue?: number;
   }) => {
     const colorSet = chartColors[color];
-    const values = sampledData.map(d => d[dataKey as keyof typeof d] as number);
-    const avg = values.reduce((a, b) => a + b, 0) / values.length;
-    const min = Math.min(...values);
-    const max = Math.max(...values);
+    // Only include points with actual data (hasData=true and value is not null) for statistics
+    const validValues = sampledData
+      .filter(d => d.hasData && d[dataKey as keyof typeof d] !== null)
+      .map(d => d[dataKey as keyof typeof d] as number);
+    const avg = validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0;
+    const min = validValues.length > 0 ? Math.min(...validValues) : 0;
+    const max = validValues.length > 0 ? Math.max(...validValues) : 0;
 
     return (
       <div className="relative">
@@ -581,13 +686,13 @@ function HistoryChart({ serverId }: { serverId: string }) {
           <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
             <div className="text-[10px] text-gray-500 uppercase">{t('serverDetail.history.totalUpload')}</div>
             <div className="text-lg font-mono text-emerald-500">
-              {formatBytesLocal(data.reduce((a, b) => a + b.net_tx, 0))}
+              {formatBytesLocal(sampledData.filter(d => d.hasData && d.net_tx !== null).reduce((a, b) => a + (b.net_tx || 0), 0))}
             </div>
           </div>
           <div className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/20">
             <div className="text-[10px] text-gray-500 uppercase">{t('serverDetail.history.totalDownload')}</div>
             <div className="text-lg font-mono text-cyan-500">
-              {formatBytesLocal(data.reduce((a, b) => a + b.net_rx, 0))}
+              {formatBytesLocal(sampledData.filter(d => d.hasData && d.net_rx !== null).reduce((a, b) => a + (b.net_rx || 0), 0))}
             </div>
           </div>
         </div>
@@ -654,8 +759,10 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 { key: 'memory', color: 'purple', label: 'Memory' },
                 { key: 'disk', color: 'amber', label: 'Disk' },
               ].map(({ key, color, label }) => {
-                const values = data.map(d => d[key as keyof HistoryPoint] as number);
-                const avg = values.reduce((a, b) => a + b, 0) / values.length;
+                const validValues = sampledData
+                  .filter(d => d.hasData && d[key as keyof typeof d] !== null)
+                  .map(d => d[key as keyof typeof d] as number);
+                const avg = validValues.length > 0 ? validValues.reduce((a, b) => a + b, 0) / validValues.length : 0;
                 return (
                   <div key={key} className={`p-3 rounded-lg bg-${color}-500/10 border border-${color}-500/20`}>
                     <div className="text-[10px] text-gray-500 uppercase mb-1">{label} Avg</div>
@@ -669,7 +776,11 @@ function HistoryChart({ serverId }: { serverId: string }) {
           </div>
         );
 
-      case 'cpu':
+      case 'cpu': {
+        const cpuValues = sampledData.filter(d => d.hasData && d.cpu !== null).map(d => d.cpu as number);
+        const cpuMin = cpuValues.length > 0 ? Math.min(...cpuValues) : 0;
+        const cpuAvg = cpuValues.length > 0 ? cpuValues.reduce((a, b) => a + b, 0) / cpuValues.length : 0;
+        const cpuMax = cpuValues.length > 0 ? Math.max(...cpuValues) : 0;
         return (
           <div className={`transition-opacity ${opacity}`}>
             <SingleLineChart 
@@ -683,26 +794,31 @@ function HistoryChart({ serverId }: { serverId: string }) {
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Min</div>
                 <div className="text-lg font-mono text-blue-400">
-                  {Math.min(...data.map(d => d.cpu)).toFixed(1)}%
+                  {cpuMin.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Avg</div>
                 <div className="text-lg font-mono text-blue-400">
-                  {(data.reduce((a, b) => a + b.cpu, 0) / data.length).toFixed(1)}%
+                  {cpuAvg.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Max</div>
                 <div className="text-lg font-mono text-blue-400">
-                  {Math.max(...data.map(d => d.cpu)).toFixed(1)}%
+                  {cpuMax.toFixed(1)}%
                 </div>
               </div>
             </div>
           </div>
         );
+      }
 
-      case 'memory':
+      case 'memory': {
+        const memValues = sampledData.filter(d => d.hasData && d.memory !== null).map(d => d.memory as number);
+        const memMin = memValues.length > 0 ? Math.min(...memValues) : 0;
+        const memAvg = memValues.length > 0 ? memValues.reduce((a, b) => a + b, 0) / memValues.length : 0;
+        const memMax = memValues.length > 0 ? Math.max(...memValues) : 0;
         return (
           <div className={`transition-opacity ${opacity}`}>
             <SingleLineChart 
@@ -716,26 +832,31 @@ function HistoryChart({ serverId }: { serverId: string }) {
               <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Min</div>
                 <div className="text-lg font-mono text-purple-400">
-                  {Math.min(...data.map(d => d.memory)).toFixed(1)}%
+                  {memMin.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Avg</div>
                 <div className="text-lg font-mono text-purple-400">
-                  {(data.reduce((a, b) => a + b.memory, 0) / data.length).toFixed(1)}%
+                  {memAvg.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Max</div>
                 <div className="text-lg font-mono text-purple-400">
-                  {Math.max(...data.map(d => d.memory)).toFixed(1)}%
+                  {memMax.toFixed(1)}%
                 </div>
               </div>
             </div>
           </div>
         );
+      }
 
-      case 'disk':
+      case 'disk': {
+        const diskValues = sampledData.filter(d => d.hasData && d.disk !== null).map(d => d.disk as number);
+        const diskMin = diskValues.length > 0 ? Math.min(...diskValues) : 0;
+        const diskAvg = diskValues.length > 0 ? diskValues.reduce((a, b) => a + b, 0) / diskValues.length : 0;
+        const diskMax = diskValues.length > 0 ? Math.max(...diskValues) : 0;
         return (
           <div className={`transition-opacity ${opacity}`}>
             <SingleLineChart 
@@ -749,24 +870,25 @@ function HistoryChart({ serverId }: { serverId: string }) {
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Min</div>
                 <div className="text-lg font-mono text-amber-400">
-                  {Math.min(...data.map(d => d.disk)).toFixed(1)}%
+                  {diskMin.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Avg</div>
                 <div className="text-lg font-mono text-amber-400">
-                  {(data.reduce((a, b) => a + b.disk, 0) / data.length).toFixed(1)}%
+                  {diskAvg.toFixed(1)}%
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <div className="text-[10px] text-gray-500 uppercase">Max</div>
                 <div className="text-lg font-mono text-amber-400">
-                  {Math.max(...data.map(d => d.disk)).toFixed(1)}%
+                  {diskMax.toFixed(1)}%
                 </div>
               </div>
             </div>
           </div>
         );
+      }
 
       case 'network':
         return (
@@ -775,27 +897,89 @@ function HistoryChart({ serverId }: { serverId: string }) {
           </div>
         );
 
-      case 'ping':
+      case 'ping': {
         // Colors for different ping targets
         const pingColorKeys: (keyof typeof chartColors)[] = ['rose', 'cyan', 'amber', 'purple', 'emerald', 'blue'];
         
+        // Generate fixed time grid for ping data
+        const { points: pingPoints, interval: pingInterval, startTime: pingStartTime } = getGridConfig;
+        const now = Date.now();
+        
         // Check if we have detailed ping target data
         if (pingTargets.length > 0) {
-          // Create combined chart data with all targets (backend returns optimal density)
-          const combinedPingData = pingTargets[0]?.data
-            .map((d, i) => {
-              const point: Record<string, number | string | null> = {
-                index: i,
-                timestamp: d.timestamp,
-                formattedTime: formatTimeForChart(d.timestamp),
-              };
-              // Add each target's latency to the point
-              pingTargets.forEach((target, targetIdx) => {
-                const targetData = target.data[i];
-                point[`ping_${targetIdx}`] = targetData?.latency_ms ?? null;
-              });
-              return point;
-            }) || [];
+          // Create fixed time grid for ping
+          const pingTimeGrid: Array<{
+            index: number;
+            gridTime: number;
+            timestamp: string;
+            formattedTime: string;
+            hasData: boolean;
+            [key: string]: number | string | boolean | null;
+          }> = [];
+          
+          for (let i = 0; i < pingPoints; i++) {
+            const gridTime = pingStartTime + i * pingInterval;
+            const timestamp = new Date(gridTime).toISOString();
+            const point: typeof pingTimeGrid[0] = {
+              index: i,
+              gridTime,
+              timestamp,
+              formattedTime: formatTimeForChart(timestamp),
+              hasData: false,
+            };
+            // Initialize all ping targets as null
+            pingTargets.forEach((_, targetIdx) => {
+              point[`ping_${targetIdx}`] = null;
+            });
+            pingTimeGrid.push(point);
+          }
+          
+          // Find earliest data time from all targets
+          let earliestPingTime = Infinity;
+          pingTargets.forEach(target => {
+            if (target.data.length > 0) {
+              const firstTime = new Date(target.data[0].timestamp).getTime();
+              if (firstTime < earliestPingTime) earliestPingTime = firstTime;
+            }
+          });
+          
+          // Merge ping data into time grid
+          const halfInterval = pingInterval / 2;
+          
+          for (let i = 0; i < pingTimeGrid.length; i++) {
+            const gridPoint = pingTimeGrid[i];
+            const gridTime = gridPoint.gridTime;
+            
+            // If before data collection or after now, leave as null (blank)
+            if (gridTime < earliestPingTime - halfInterval || gridTime > now + halfInterval) {
+              continue;
+            }
+            
+            // For each target, find closest data point
+            pingTargets.forEach((target, targetIdx) => {
+              let closestValue: number | null = null;
+              let minDistance = Infinity;
+              
+              for (const dataPoint of target.data) {
+                const dataTime = new Date(dataPoint.timestamp).getTime();
+                const distance = Math.abs(dataTime - gridTime);
+                
+                if (distance < minDistance && distance <= halfInterval) {
+                  minDistance = distance;
+                  closestValue = dataPoint.latency_ms;
+                }
+              }
+              
+              if (closestValue !== null) {
+                pingTimeGrid[i][`ping_${targetIdx}`] = closestValue;
+                pingTimeGrid[i].hasData = true;
+              } else if (gridTime >= earliestPingTime) {
+                // Within collection period but no data - set to 0
+                pingTimeGrid[i][`ping_${targetIdx}`] = 0;
+                pingTimeGrid[i].hasData = true;
+              }
+            });
+          }
 
           // Calculate stats for each target
           const targetStats = pingTargets.map(target => {
@@ -821,7 +1005,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
           }) => {
             if (!active || !payload?.length) return null;
             
-            const point = combinedPingData.find(d => d.formattedTime === label);
+            const point = pingTimeGrid.find(d => d.formattedTime === label);
             const timeLabel = point ? formatFullTime(point.timestamp as string) : label;
             
             return (
@@ -864,7 +1048,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
               {/* Combined chart */}
               <div className="h-56 w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <LineChart data={combinedPingData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                  <LineChart data={pingTimeGrid} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                     <CartesianGrid 
                       strokeDasharray="3 3" 
                       stroke={chartTheme.gridColor} 
@@ -875,7 +1059,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                       axisLine={false}
                       tickLine={false}
                       tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
-                      interval={calcPingInterval(combinedPingData.length)}
+                      interval={xAxisInterval}
                       tickFormatter={(value) => value || ''}
                     />
                     <YAxis
@@ -960,32 +1144,23 @@ function HistoryChart({ serverId }: { serverId: string }) {
           );
         }
         
-        // Fallback to aggregated ping_ms data
-        const pingData = sampledData.filter(d => d.ping_ms !== undefined && d.ping_ms !== null);
-        if (pingData.length === 0) {
-          return (
-            <div className={`transition-opacity ${opacity}`}>
-              <div className="h-32 flex flex-col items-center justify-center text-gray-500">
-                <svg className="w-12 h-12 mb-3 text-rose-500/50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                </svg>
-                <span className="text-sm">No ping data available</span>
-                <span className="text-xs text-gray-600 mt-1">Waiting for agent to report latency...</span>
-              </div>
-            </div>
-          );
-        }
+        // Fallback to aggregated ping_ms data from sampledData (which already uses fixed time grid)
+        // Check for points that have actual ping data (non-zero, non-null values)
+        const pingData = sampledData.filter(d => d.hasData && d.ping_ms !== null && d.ping_ms > 0);
         
-        const pingValues = pingData.map(d => d.ping_ms!);
-        const avgPing = pingValues.reduce((a, b) => a + b, 0) / pingValues.length;
-        const minPing = Math.min(...pingValues);
-        const maxPing = Math.max(...pingValues);
+        // If no valid ping data, still show the chart with the time grid (all zeros or nulls)
+        const hasAnyPingData = pingData.length > 0;
         
-        // Transform ping data for chart
-        const pingChartData = pingData.map((d, i) => ({
+        const pingValues = hasAnyPingData ? pingData.map(d => d.ping_ms!) : [0];
+        const avgPing = hasAnyPingData ? pingValues.reduce((a, b) => a + b, 0) / pingValues.length : 0;
+        const minPing = hasAnyPingData ? Math.min(...pingValues) : 0;
+        const maxPing = hasAnyPingData ? Math.max(...pingValues) : 0;
+        
+        // Use sampledData which already has the fixed time grid
+        const pingChartData = sampledData.map((d, i) => ({
           ...d,
           index: i,
-          ping: d.ping_ms ?? 0,
+          ping: d.hasData ? (d.ping_ms ?? 0) : null,
         }));
         
         return (
@@ -995,11 +1170,15 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 <span className="w-3 h-3 rounded-full bg-rose-500" />
                 <span className={`text-sm font-medium ${isLight ? 'text-gray-900' : 'text-white'}`}>Ping Latency (Average)</span>
               </div>
-              <div className="flex gap-4 text-xs">
-                <span className="text-gray-500">min: <span className="text-emerald-500 font-mono">{minPing.toFixed(1)}ms</span></span>
-                <span className="text-gray-500">avg: <span className="text-rose-500 font-mono">{avgPing.toFixed(1)}ms</span></span>
-                <span className="text-gray-500">max: <span className="text-amber-500 font-mono">{maxPing.toFixed(1)}ms</span></span>
-              </div>
+              {hasAnyPingData ? (
+                <div className="flex gap-4 text-xs">
+                  <span className="text-gray-500">min: <span className="text-emerald-500 font-mono">{minPing.toFixed(1)}ms</span></span>
+                  <span className="text-gray-500">avg: <span className="text-rose-500 font-mono">{avgPing.toFixed(1)}ms</span></span>
+                  <span className="text-gray-500">max: <span className="text-amber-500 font-mono">{maxPing.toFixed(1)}ms</span></span>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-500">No ping data in this period</div>
+              )}
             </div>
             <div className="h-48 w-full">
               <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
@@ -1014,7 +1193,7 @@ function HistoryChart({ serverId }: { serverId: string }) {
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: chartTheme.tickColor, fontSize: 10 }}
-                    interval={calcPingInterval(pingChartData.length)}
+                    interval={xAxisInterval}
                     tickFormatter={(value) => value || ''}
                   />
                   <YAxis
@@ -1050,28 +1229,31 @@ function HistoryChart({ serverId }: { serverId: string }) {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <div className="mt-6 grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                <div className="text-[10px] text-gray-500 uppercase">Min</div>
-                <div className="text-lg font-mono text-emerald-400">
-                  {minPing.toFixed(1)} ms
+            {hasAnyPingData && (
+              <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+                <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+                  <div className="text-[10px] text-gray-500 uppercase">Min</div>
+                  <div className="text-lg font-mono text-emerald-400">
+                    {minPing.toFixed(1)} ms
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
+                  <div className="text-[10px] text-gray-500 uppercase">Avg</div>
+                  <div className="text-lg font-mono text-rose-400">
+                    {avgPing.toFixed(1)} ms
+                  </div>
+                </div>
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                  <div className="text-[10px] text-gray-500 uppercase">Max</div>
+                  <div className="text-lg font-mono text-amber-400">
+                    {maxPing.toFixed(1)} ms
+                  </div>
                 </div>
               </div>
-              <div className="p-3 rounded-lg bg-rose-500/10 border border-rose-500/20">
-                <div className="text-[10px] text-gray-500 uppercase">Avg</div>
-                <div className="text-lg font-mono text-rose-400">
-                  {avgPing.toFixed(1)} ms
-                </div>
-              </div>
-              <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                <div className="text-[10px] text-gray-500 uppercase">Max</div>
-                <div className="text-lg font-mono text-amber-400">
-                  {maxPing.toFixed(1)} ms
-                </div>
-              </div>
-            </div>
+            )}
           </div>
         );
+      }
 
       default:
         return null;
